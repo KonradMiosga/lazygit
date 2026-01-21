@@ -54,7 +54,9 @@ Das Framework bietet zwei Ausführungsmodi: einen CLI-Modus für die automatisie
 
 == Unit-Tests
 
-Die Unit-Tests basieren auf einem Mock-Framework. Der `FakeCmdObjRunner` ist die zentrale Komponente und ermöglicht Thread-sichere, deterministische Tests ohne tatsächliche Git-Ausführung.
+Die Unit-Test-Strategie von lazygit implementiert ein Mock-basiertes Testverfahren, das externe Abhängigkeiten durch kontrollierte Testdoubles ersetzt. Im Zentrum steht der `FakeCmdObjRunner`, eine Implementierung des Test-Double-Patterns, die deterministische und reproduzierbare Tests ohne Ausführung tatsächlicher Git-Befehle ermöglicht.
+
+Die Architektur des Mock-Frameworks basiert auf folgender Datenstruktur:
 
 ```go
 type FakeCmdObjRunner struct {
@@ -65,9 +67,9 @@ type FakeCmdObjRunner struct {
 }
 ```
 
-Der FakeRunner verwaltet eine Liste erwarteter Commands (`expectedCmds`) und protokolliert, welche bereits ausgeführt wurden (`invokedCmdIndexes`). Der Mutex gewährleistet Thread-Safety bei paralleler Testausführung, was wichtig ist, da Go-Tests mit `t.Parallel()` konkurrent laufen können.
+Der `FakeCmdObjRunner` verwaltet eine Sequenz erwarteter Kommandos (`expectedCmds`) und protokolliert deren tatsächliche Ausführung mittels `invokedCmdIndexes`. Die Integration eines Mutex-Synchronisationsmechanismus gewährleistet Thread-Sicherheit bei paralleler Testausführung, was in Go-Testsuites, die `t.Parallel()` nutzen, essentiell ist.
 
-Das `CmdObjMatcher`-Interface erlaubt flexible Command-Matching:
+Das Matching-Verhalten wird durch die `CmdObjMatcher`-Struktur definiert:
 
 ```go
 type CmdObjMatcher struct {
@@ -78,9 +80,9 @@ type CmdObjMatcher struct {
 }
 ```
 
-Dies ermöglicht sowohl exaktes Matching (für spezifische Git-Befehle) als auch Pattern-basiertes Matching (für variable Parameter). Die `test`-Funktion entscheidet, ob ein Command zur Erwartung passt, während `output` und `err` die simulierte Antwort definieren.
+Diese Struktur ermöglicht sowohl exakte Übereinstimmungsprüfungen für spezifische Git-Befehle als auch Pattern-basierte Matcher für parametrisierte Kommandos. Die `test`-Funktion implementiert die Matching-Logik, während `output` und `err` die simulierte Systemantwort spezifizieren. Dieses Design folgt dem Strategy-Pattern und ermöglicht flexible Testszenarien ohne Änderungen am Framework selbst.
 
-Ein klassischer Unit-Test demonstriert den Einsatz:
+Ein repräsentativer Unit-Test illustriert die Anwendung:
 
 ```go
 func TestBranchNewBranch(t *testing.T) {
@@ -93,11 +95,11 @@ func TestBranchNewBranch(t *testing.T) {
 }
 ```
 
-Die `ExpectGitArgs`-Methode registriert eine Erwartung für einen spezifischen Git-Befehl. `CheckForMissingCalls()` am Ende stellt sicher, dass alle erwarteten Befehle tatsächlich ausgeführt wurden – ein wichtiger Safeguard gegen unvollständige Tests.
+Die Methode `ExpectGitArgs` registriert eine Erwartungshaltung für einen spezifischen Git-Befehl mit definierten Argumenten. Der abschließende Aufruf von `CheckForMissingCalls()` verifiziert die Vollständigkeit der Testausführung und stellt sicher, dass alle registrierten Erwartungen erfüllt wurden. Diese Verifikation fungiert als Safeguard gegen unvollständige oder fehlerhafte Testdefinitionen und erhöht die Aussagekraft der Testergebnisse.
 
 == Table-Driven Tests
 
-Table-Driven Tests werden konsequent eingesetzt. Ein Beispiel aus `branch_test.go` zeigt die Struktur:
+Table-Driven Tests stellen eine systematische Testvariante dar, die mehrere Testfälle durch Parametrisierung in einer tabellarischen Struktur aggregiert. Diese Methodik reduziert Code-Duplikation und erhöht die Wartbarkeit durch Separation von Testdaten und Testlogik. Im Kontext von lazygit wird dieses Verfahren konsequent angewandt, wie folgendes Beispiel aus `branch_test.go` demonstriert:
 
 ```go
 func TestBranchGetCommitDifferences(t *testing.T) {
@@ -136,7 +138,9 @@ func TestBranchGetCommitDifferences(t *testing.T) {
 }
 ```
 
-Dieser Test validiert verschiedene Szenarien: normale Ausführung, Fehlerbehandlung bei der ersten Git-Operation und Fehlerbehandlung bei der zweiten Operation. Jedes Szenario definiert eigene Mock-Erwartungen, was präzise Kontrolle über Fehlerszenarien ermöglicht. Die Verwendung von `t.Run()` erstellt benannte Sub-Tests, was bei Fehlschlägen sofort zeigt, welches Szenario betroffen ist.
+Die Testfallspezifikation erfolgt über eine typisierte `scenario`-Struktur, die sowohl Eingabeparameter als auch erwartete Ausgabewerte kapselt. Jedes Szenario definiert dabei eine eigenständige Mock-Konfiguration, was präzise Kontrolle über Fehlerinjektionen und Grenzfallverhalten ermöglicht. Die iterative Ausführung mittels `t.Run()` generiert benannte Sub-Tests, wodurch bei Testfehlschlägen eine unmittelbare Identifikation des betroffenen Szenarios möglich wird.
+
+Dieser Ansatz validiert sowohl den Normalfall erfolgreicher Git-Operationen als auch verschiedene Fehlerszenarien, etwa das Scheitern von Git-Befehlen aufgrund fehlender Remote-Tracking-Branches. Die Granularität der Mock-Erwartungen erlaubt dabei die gezielte Simulation von Fehlern an unterschiedlichen Stellen der Befehlssequenz, was eine umfassende Abdeckung von Error-Handling-Pfaden gewährleistet.
 
 == Integrationstests
 
