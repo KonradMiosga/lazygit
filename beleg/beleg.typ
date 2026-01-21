@@ -44,15 +44,17 @@ Aufbauend auf den Unit-Tests folgen Integrationstests, die das Zusammenwirken me
 
 = Analyse der vorhandenen Teststrategie
 
-Lazygit setzt verschiedene Teststrategien ein, die dem Pyramidenmodell folgen: Eine breite Basis von Unit-Tests, eine mittlere Schicht von Integrationstests und punktuelle End-to-End-Tests. Diese Struktur optimiert die Balance zwischen Testabdeckung, Ausführungsgeschwindigkeit und Wartungsaufwand.
+Lazygit verfolgt eine zweistufige Teststrategie, die aus Unit-Tests und einem sehr umfassenden Satz an Integrationstests besteht. Die Kernphilosophie des Projekts legt dabei einen deutlich größeren Wert auf Integrationstests, da diese das Verhalten der Anwendung aus der Perspektive des Endbenutzers am besten abbilden und somit als wertvoller für die Qualitätssicherung angesehen werden.
 
-== Testinfrastruktur und Organisation
+Unit-Tests bilden die unterste Ebene der Teststrategie. Sie befinden sich direkt neben dem zu testenden Code im pkg/-Verzeichnis und sind darauf ausgelegt, schnell und isoliert zu laufen. Um Funktionen mit einer Vielzahl von Eingaben und Grenzfällen zu prüfen, folgt das Projekt konsequent dem Go-Standard der Table-Driven Tests. Dabei wird eine "Tabelle" (eine Slice von Structs) mit verschiedenen Testszenarien definiert, die dann in einer Schleife abgearbeitet werden. Jeder Fall wird als benannter Sub-Test ausgeführt, was die Tests übersichtlich, wartbar und leicht erweiterbar macht. Abhängigkeiten zur Außenwelt wie dem Dateisystem oder echten Git-Repositories werden durch Mocks ersetzt.
 
-Das Projekt nutzt Go's Standard-Testing-Framework mit 80 Test-Dateien allein im `pkg/`-Verzeichnis. Unit-Tests befinden sich mit der Namenskonvention `*_test.go` direkt neben dem Produktionscode, was die Wartbarkeit erhöht. Die Projekt-Struktur folgt Go's Standard-Layout: `pkg/` für wiederverwendbare Packages, `cmd/` für ausführbare Programme und `pkg/integration/tests/` für die umfangreiche Integrationstestsuite mit über 450 Testdateien.
+Der Schwerpunkt der Qualitätssicherung liegt auf den Integrationstests. Für diese wurde ein eigenes Test-Framework geschaffen. Anstatt einzelne Funktionen zu testen, simulieren diese Tests die Anwendung als Ganzes. Für jeden Test wird ein echtes Git-Repository in einem definierten Zustand erstellt. Anschließend steuert ein "Test-Treiber" programmgesteuert die textbasierte Benutzeroberfläche (TUI), simuliert Tastendrücke und überprüft den Zustand der Oberfläche sowie die Ergebnisse von Git-Befehlen. Dieses Vorgehen stellt sicher, dass komplexe Arbeitsabläufe wie interaktive Rebases, Cherry-Picking oder das Beheben von Merge-Konflikten korrekt funktionieren.
 
-=== Unit-Tests und der FakeRunner
+Das Framework bietet zwei Ausführungsmodi: einen CLI-Modus für die automatisierte Ausführung (z.B. in CI/CD-Pipelines) und einen interaktiven TUI-Modus, der es Entwicklern erlaubt, Tests live in einer speziellen UI auszuwählen, auszuführen und zu debuggen. Dieser interaktive Modus erleichtert die Erstellung und Wartung der komplexen Tests erheblich. Das Hinzufügen neuer Tests ist ein klar definierter Prozess, bei dem nach dem Erstellen der Testdatei ein Codegenerierungs-Befehl ausgeführt wird, um den neuen Test in die globale Testliste zu integrieren.
 
-Die Unit-Tests basieren auf einem ausgeklügelten Mock-Framework. Der `FakeCmdObjRunner` ist die zentrale Komponente und ermöglicht Thread-sichere, deterministische Tests ohne tatsächliche Git-Ausführung. Ein Blick in die Implementation zeigt die Raffinesse:
+== Unit-Tests
+
+Die Unit-Tests basieren auf einem Mock-Framework. Der `FakeCmdObjRunner` ist die zentrale Komponente und ermöglicht Thread-sichere, deterministische Tests ohne tatsächliche Git-Ausführung.
 
 ```go
 type FakeCmdObjRunner struct {
@@ -85,7 +87,7 @@ func TestBranchNewBranch(t *testing.T) {
     runner := oscommands.NewFakeRunner(t).
         ExpectGitArgs([]string{"checkout", "-b", "test", "refs/heads/master"}, "", nil)
     instance := buildBranchCommands(commonDeps{runner: runner})
-    
+
     assert.NoError(t, instance.New("test", "refs/heads/master"))
     runner.CheckForMissingCalls()
 }
@@ -93,7 +95,7 @@ func TestBranchNewBranch(t *testing.T) {
 
 Die `ExpectGitArgs`-Methode registriert eine Erwartung für einen spezifischen Git-Befehl. `CheckForMissingCalls()` am Ende stellt sicher, dass alle erwarteten Befehle tatsächlich ausgeführt wurden – ein wichtiger Safeguard gegen unvollständige Tests.
 
-=== Table-Driven Tests in der Praxis
+== Table-Driven Tests
 
 Table-Driven Tests werden konsequent eingesetzt. Ein Beispiel aus `branch_test.go` zeigt die Struktur:
 
@@ -136,7 +138,7 @@ func TestBranchGetCommitDifferences(t *testing.T) {
 
 Dieser Test validiert verschiedene Szenarien: normale Ausführung, Fehlerbehandlung bei der ersten Git-Operation und Fehlerbehandlung bei der zweiten Operation. Jedes Szenario definiert eigene Mock-Erwartungen, was präzise Kontrolle über Fehlerszenarien ermöglicht. Die Verwendung von `t.Run()` erstellt benannte Sub-Tests, was bei Fehlschlägen sofort zeigt, welches Szenario betroffen ist.
 
-=== Integrationstests: Ein eigenes Framework
+== Integrationstests
 
 Die Integrationstestsuite ist beeindruckend umfangreich mit über 450 Testdateien und etwa 28.000 Zeilen Code. Sie verwendet ein Domain-Specific Language (DSL)-Framework, das komplexe UI-Interaktionen lesbar beschreibt.
 
@@ -195,11 +197,11 @@ Das Framework bietet spezialisierte Driver für verschiedene UI-Komponenten:
 
 Diese Abstraktion trennt Testlogik von UI-Implementation, was Refactorings erleichtert. Ändert sich die UI-Struktur, müssen nur die Driver angepasst werden, nicht hunderte von Tests.
 
-== Continuous Integration Pipeline
+= Continuous Integration Pipeline
 
 GitHub Actions führt bei jedem Push und Pull Request eine umfassende Test-Pipeline aus. Die CI-Konfiguration in `.github/workflows/ci.yml` definiert mehrere parallel laufende Jobs, die verschiedene Aspekte validieren.
 
-=== Job-Struktur und Parallelisierung
+== Job-Struktur und Parallelisierung
 
 Die Pipeline besteht aus fünf Haupt-Jobs:
 
@@ -393,7 +395,7 @@ Die Implementation folgte Projekt-Konventionen. `tag_test.go` definiert Szenario
 
 == Testergebnisse
 
-Alle 18 Tests bestanden beim ersten Durchlauf. Lokale Ausführung mit `go test ./pkg/commands/git_commands -run TestTag -v` dauerte unter 10ms. Die CI-Pipeline validierte auf Ubuntu und Windows ohne Plattform-Probleme. 
+Alle 18 Tests bestanden beim ersten Durchlauf. Lokale Ausführung mit `go test ./pkg/commands/git_commands -run TestTag -v` dauerte unter 10ms. Die CI-Pipeline validierte auf Ubuntu und Windows ohne Plattform-Probleme.
 
 Die Coverage-Analyse zeigt signifikante Verbesserungen:
 
@@ -416,7 +418,7 @@ Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` von 37.1% auf 37.
 
 = Testauswertung und Metriken
 
-Die Coverage-Verbesserungen sind messbar und signifikant. Für `tag.go` stieg die Coverage von 0% auf 62.5%, wobei alle getesteten Funktionen 100% Coverage erreichten. Nur drei Remote-Funktionen blieben ungetestet. `string_stack.go` erreichte vollständige 100% Coverage für alle Funktionen. 
+Die Coverage-Verbesserungen sind messbar und signifikant. Für `tag.go` stieg die Coverage von 0% auf 62.5%, wobei alle getesteten Funktionen 100% Coverage erreichten. Nur drei Remote-Funktionen blieben ungetestet. `string_stack.go` erreichte vollständige 100% Coverage für alle Funktionen.
 
 Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` um 0.5 Prozentpunkte (37.1% → 37.6%) und `pkg/utils` um 1.4 Prozentpunkte (58.2% → 59.6%). Diese scheinbar kleinen Zahlen sind bedeutsam, da beide Packages umfangreich sind und die neuen Tests gezielt Lücken schließen.
 
@@ -472,7 +474,7 @@ Die Erkenntnisse dieser Arbeit sind über lazygit hinaus wertvoll. Table-driven 
 
 Zukünftige Arbeiten könnten diese Analyse erweitern durch Performance-Benchmarking kritischer Komponenten, Mutation-Testing zur Validierung der Test-Qualität, End-to-End-Test-Automatisierung für komplexere User-Journeys oder Fuzz-Testing für Parser und Input-Validierung. Lazygit bietet ein reichhaltiges Umfeld für weitere Experimente im Software-Testing.
 
-
+#pagebreak()
 #show link: set text(fill: black)
 #show bibliography: set heading(level: 2)
 #bibliography("biblio.bib", title: "Quellen", style: "ieee")
