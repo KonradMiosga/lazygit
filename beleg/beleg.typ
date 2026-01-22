@@ -25,19 +25,19 @@ Diese Arbeit verfolgt mehrere Ziele: Analyse der bestehenden Teststrategie mit i
 Die Bearbeitung erfolgte systematisch: Nach Literaturrecherche zu Testing-Grundlagen wurde die bestehende Testinfrastruktur analysiert. Coverage-Reports und manuelle Code-Reviews identifizierten Testlücken, die anschließend durch table-driven Tests geschlossen wurden. Die neuen Tests wurden in die CI-Pipeline integriert und auf mehreren Plattformen validiert.
 
 #pagebreak()
-= Theoretische Grundlagen
+= Theoretische Grundlagen <TheoGrund>
 
 Software-Testing ist ein zentraler Bestandteil der Qualitätssicherung in der Softwareentwicklung. Das oft zitierte Statement von Edsger W. Dijkstra bringt dabei eine grundlegende Eigenschaft des Testens prägnant auf den Punkt: Tests eignen sich hervorragend zum Aufdecken von Fehlern, sind jedoch ungeeignet, um die vollständige Fehlerfreiheit eines Programms nachzuweisen #cite(<Dijkstra2007HumbleProgrammer>).
 
 Diese Einschränkung ergibt sich aus der Natur des Software-Testings als Stichprobenverfahren. Da Programme in der Regel eine sehr große Menge möglicher Eingaben besitzen, kann im Rahmen von Tests nur eine endliche Teilmenge davon überprüft werden. Ein formaler Beweis der Korrektheit allein durch Tests ist daher prinzipiell nicht möglich.
 
-Vor diesem Hintergrund kommt der systematischen und zielgerichteten Auswahl repräsentativer Testfälle eine zentrale Bedeutung zu. Ziel des Testens ist es nicht, Fehlerfreiheit zu garantieren, sondern mit begrenztem Aufwand eine möglichst hohe Wahrscheinlichkeit zur Entdeckung relevanter Defekte zu erreichen.
+Vor diesem Hintergrund kommt der systematischen und zielgerichteten Auswahl repräsentativer Testfälle eine zentrale Bedeutung zu. Ziel des Testens ist es nicht, wie schon eingangs erwähnt, Fehlerfreiheit zu garantieren, sondern mit begrenztem Aufwand eine möglichst hohe Wahrscheinlichkeit zur Entdeckung relevanter Defekte zu erreichen.
 
 Der Testprozess lässt sich grundsätzlich in zwei zentrale Bereiche gliedern: die statische Analyse und das dynamische Testen #cite(<LiggesmeyerSoftwareQualitaet2009>, supplement: [S. 4]). Die statische Analyse untersucht Softwareartefakte ohne deren Ausführung und zielt darauf ab, potenzielle Fehler, Regelverletzungen oder Qualitätsmängel frühzeitig im Entwicklungsprozess zu identifizieren #cite(<LiggesmeyerSoftwareQualitaet2009>, supplement: [S. 43–45]). Zu den typischen Verfahren zählen Code-Reviews, der Einsatz von Lintern sowie statische Datenfluss- und Kontrollflussanalysen.
 
 Demgegenüber steht das dynamische Testen, bei dem die Software mit konkreten Eingabedaten ausgeführt wird. Dadurch lassen sich insbesondere solche Fehler aufdecken, die erst zur Laufzeit auftreten, etwa Speicherlecks, Race Conditions oder fehlerhaftes Laufzeitverhalten. Dynamische Tests ermöglichen somit eine Überprüfung des tatsächlichen Systemverhaltens unter realistischen oder gezielt konstruierten Bedingungen #cite(<LiggesmeyerSoftwareQualitaet2009>, supplement: [S. 39–43]). Der Schwerpunkt dieser Arbeit liegt auf dem dynamischen Testen und den zugehörigen Testverfahren.
 
-Dynamisches Testen lässt sich grundsätzlich in Black-Box-Tests und White-Box-Tests unterteilen. Black-Box-Tests leiten Testfälle ausschließlich aus Spezifikationen und Anforderungen ab, ohne Kenntnis der internen Programmstruktur. Typische Verfahren sind hierbei die Äquivalenzklassenbildung sowie die Grenzwertanalyse. White-Box-Tests hingegen konstruieren Testfälle auf Basis der internen Programmstruktur mit dem Ziel, definierte Abdeckungskriterien wie Anweisungs- oder Pfadabdeckung zu erfüllen #cite(<HoffmannSoftwareQualitaet2013>, supplement: [S. 173–174]). In der praktischen Testpraxis werden beide Ansätze häufig kombiniert, um sowohl funktionale als auch strukturelle Aspekte der Software zu überprüfen.
+Dynamisches Testen lässt sich grundsätzlich in Black-Box-Tests und White-Box-Tests unterteilen. Black-Box-Tests leiten Testfälle ausschließlich aus Spezifikationen und Anforderungen ab, ohne Kenntnis der internen Programmstruktur. Typische Verfahren sind hierbei die Äquivalenzklassenbildung sowie darauf aufbauend die Grenzwertanalyse. White-Box-Tests hingegen konstruieren Testfälle auf Basis der internen Programmstruktur mit dem Ziel, definierte Abdeckungskriterien wie Anweisungs- oder Pfadabdeckung zu erfüllen #cite(<HoffmannSoftwareQualitaet2013>, supplement: [S. 173–174]). In der Testpraxis werden beide Ansätze häufig kombiniert, um sowohl funktionale als auch strukturelle Aspekte der Software zu überprüfen.
 
 Innerhalb der White-Box-Tests lassen sich verschiedene, aufeinander aufbauende Testverfahren unterscheiden. Unit-Tests überprüfen die kleinsten testbaren Einheiten eines Programms in Isolation. Abhängige Komponenten werden dabei typischerweise durch Mocks oder Stubs ersetzt, was schnelle, reproduzierbare und deterministische Tests ermöglicht #cite(<LiggesmeyerSoftwareQualitaet2009>, supplement: [S. 371–372]). Eine häufig eingesetzte Ausprägung sind sogenannte Table-Driven Tests, bei denen mehrere Testfälle in Form von Datentabellen definiert und von einem generischen Testcode iterativ ausgeführt werden #cite(<GoTableDrivenTests>). Dieses Vorgehen reduziert Redundanz und verbessert die Wartbarkeit der Tests.
 
@@ -142,33 +142,19 @@ var Rebase = NewIntegrationTest(NewIntegrationTestArgs{
 
 Der Test läuft in drei Schritten ab: Zuerst wird ein echtes Git-Repository mit dem `Shell`-Helper vorbereitet. Dann simuliert der `TestDriver` Benutzeraktionen wie `Focus()`, `SelectNextItem()` oder `Press()` – das entspricht den Tastendrücken, die ein echter Nutzer machen würde. Zwischendurch wird immer wieder geprüft, ob die UI das Erwartete anzeigt, zum Beispiel mit `Contains()` oder `Equals()`. Man kann den Test lesen wie eine Beschreibung dessen, was ein Nutzer tut.
 
-Es gibt über 450 solcher Integrationstests, die alle möglichen Szenarien abdecken: Branch-Operationen wie Checkout oder Rebase (über 100 Tests), Commit-Operationen wie Amend oder Cherry-Pick (über 120 Tests), interaktive Rebases (über 140 Tests), Konfliktbehandlung, File-Operations und noch mehr. Das Framework bietet verschiedene "Driver" für unterschiedliche UI-Komponenten – einen für Listen, einen für Menüs, einen für Eingabefelder. Wenn sich die UI-Struktur ändert, muss man nur die Driver anpassen, nicht jeden einzelnen Test.
+Es gibt über 450 solcher Integrationstests, die alle möglichen Szenarien abdecken: Branch-Operationen wie Checkout oder Rebase, Commit-Operationen wie Amend oder Cherry-Pick , interaktive Rebases, Konfliktbehandlung, File-Operations und mehr.
 
 Technisch basiert das Framework auf einer Architektur spezialisierter Driver-Komponenten. Der `ViewDriver` ermöglicht Interaktionen mit Listen-Views wie Branches, Commits und Files, während der `MenuDriver` die Navigation in Popup-Menüs steuert. Der `PromptDriver` behandelt Texteingaben, der `ConfirmationDriver` das Bestätigen oder Ablehnen von Dialogen und der `AlertDriver` die Validierung von Fehlermeldungen. Diese Abstraktion entkoppelt die Testlogik von der konkreten UI-Implementation, was Refactorings erheblich erleichtert. Ändert sich die Struktur der Benutzeroberfläche, müssen lediglich die Driver-Implementierungen angepasst werden, während die hunderten von Tests unverändert bleiben können.
 
-// #pagebreak()
-// = Continuous Integration Pipeline
-//
-// Lazygit nutzt GitHub Actions für die automatisierte Qualitätssicherung. Bei jedem Push und Pull Request läuft eine CI-Pipeline, die in der Datei `.github/workflows/ci.yml` konfiguriert ist.
-//
-// Die Pipeline besteht im Wesentlichen aus fünf verschiedenen Jobs, die alle gleichzeitig laufen. Der erste Job führt die Unit-Tests aus, und zwar sowohl auf Ubuntu als auch auf Windows. Das ist wichtig, weil Lazygit eine Cross-Platform-Anwendung ist und auf verschiedenen Betriebssystemen laufen muss. GitHub Actions nutzt dafür eine sogenannte Matrix-Strategy, die den gleichen Test automatisch mit verschiedenen Konfigurationen ausführt. Die Unit-Tests werden mit dem Befehl `go test ./... -short` gestartet, wobei das `-short`-Flag dafür sorgt, dass nur die schnellen Unit-Tests laufen und die zeitintensiven Integrationstests übersprungen werden. Die Testergebnisse und Coverage-Daten werden anschließend als Artifacts hochgeladen, sodass sie später wieder abgerufen werden können.
-//
-// Der zweite Job ist für die Integrationstests zuständig und testet gegen vier verschiedene Git-Versionen: 2.32.0 als älteste unterstützte Version, 2.38.2 als erste Version mit einer bestimmten Rebase-Funktion, 2.44.0 als aktuell stabile Version und die neueste Version, die es gibt. Diese Kompatibilitätsprüfung ist notwendig, weil Git zwischen Versionen manchmal Breaking Changes einführt und Lazygit mit allen noch unterstützten Versionen funktionieren soll. Für die älteren Git-Versionen wird Git tatsächlich aus dem Quellcode kompiliert, was theoretisch sehr lange dauern würde, aber durch Caching beschleunigt wird. Ein Skript namens `run_integration_tests.sh` orchestriert die Testausführung.
-//
-// Der dritte Job kompiliert Lazygit für verschiedene Plattformen – Linux, Windows und macOS (Darwin). Auch wenn hier keine Tests laufen, ist dieser Build-Schritt wichtig, weil er sicherstellt, dass der Code überhaupt auf allen Zielsystemen kompiliert werden kann. In Go funktioniert das über Umgebungsvariablen wie `GOOS=linux` oder `GOOS=windows`, die dem Compiler sagen, für welches System er bauen soll.
-//
-// Der vierte Job prüft die Konsistenz der Codebase. Er stellt sicher, dass die Dependencies im `vendor`-Verzeichnis mit den Angaben in `go.mod` übereinstimmen, dass keine veralteten Dependencies referenziert werden und dass automatisch generierte Dateien aktuell sind. Diese Checks sind vielleicht nicht so spannend, aber durchaus wichtig – es ist schon öfter passiert, dass jemand vergessen hat, nach einer Dependency-Änderung `go mod tidy` auszuführen, und dann baut es auf anderen Rechnern nicht mehr.
-//
-// Der fünfte Job führt statische Code-Analyse mit golangci-lint durch. Dieser Linter ist ziemlich gründlich und findet potenzielle Bugs wie Null-Pointer-Dereferenzierungen, Performance-Probleme, unsichere Code-Patterns und Style-Violations. Manchmal ist er auch etwas pingelig, aber besser zu pingelig als zu lasch.
-//
-// Nachdem all diese Jobs durchgelaufen sind, gibt es noch einen speziellen `upload-coverage` Job, der darauf wartet, dass Unit-Tests und Integrationstests fertig sind. Er sammelt dann alle Coverage-Daten ein, fügt sie zusammen und lädt das Ergebnis zu Codacy hoch, einem Service, der Code-Qualität und Test-Coverage trackt. Das Zusammenführen der Coverage-Daten ist etwas komplizierter geworden seit Go 1.21, weil das neue Coverage-Format andere Tools benötigt (`go tool covdata`), aber dafür kann es jetzt auch Coverage von kompilierten Binaries erfassen, was für die Integrationstests wichtig ist.
-//
-// Die Coverage-Werte sind je nach Komponente unterschiedlich. Die Command-Builder-Komponenten, die Git-Befehle zusammenbauen, haben mit 75-85% eine recht gute Coverage. Die Loader-Komponenten kommen auf 70-80%, die Controller-Logik auf 60-70%. Die Presentation-Layer und UI-Rendering-Komponenten haben mit 40-55% bzw. 25-40% deutlich niedrigere Werte. Das ist aber bei Terminal-Anwendungen ganz normal – UI-Code ist generell schwieriger zu testen und ändert sich auch häufiger. Das Projekt gleicht das durch die umfangreichen Integrationstests aus, die die UI indirekt mittesten.
-//
-// Zusätzlich zu den Tests gibt es noch ein paar Safeguards. Die Pipeline prüft zum Beispiel, dass keine `fixup!`-Commits versehentlich gemergt werden und dass Pull Requests bestimmte Labels haben. Direkt auf den Master-Branch pushen ist sowieso nicht erlaubt – alles muss über Pull Requests gehen, und die können nur gemergt werden, wenn alle Checks grün sind. Dank der Parallelisierung dauert die gesamte Pipeline typischerweise nur 15-20 Minuten. Würde alles hintereinander laufen, wäre man bei über einer Stunde.
-//
-// Insgesamt umfasst die Testsuite über 80 Unit-Test-Dateien mit etwa 2500 einzelnen Testfunktionen und mehr als 450 Integrationstests. Die Unit-Tests laufen in rund 10 Sekunden durch, die Integrationstests brauchen 5-10 Minuten. Das Verhältnis von Test-Code zu Produktionscode liegt in kritischen Packages bei etwa 1.2:1 – das heißt, für jede Zeile Produktionscode gibt es etwas mehr als eine Zeile Test-Code. Die schnellen Unit-Tests ermöglichen es Entwicklern, nach jeder kleinen Änderung `go test ./...` laufen zu lassen, ohne lange warten zu müssen.
-//
+#pagebreak()
+= Continuous Integration Pipeline
+
+Die CI-Pipeline ist kein Bestandteil der Teststrategie selbst, sondern dient als technisches Mittel zur automatisierten Umsetzung der beschriebenen Testkonzepte. Lazygit nutzt GitHub Actions, um bei jedem Push und Pull Request automatisch die Qualitätssicherung durchzuführen.
+
+Die Pipeline führt parallel mehrere Prüfungen aus: Unit-Tests laufen auf Ubuntu und Windows (Cross-Platform-Kompatibilität), Integrationstests validieren die Funktionalität gegen vier verschiedene Git-Versionen (2.32.0 bis neueste), Build-Jobs kompilieren für Linux, Windows und macOS, Konsistenz-Checks prüfen Dependencies und generierte Dateien, und golangci-lint führt statische Code-Analyse durch. Nach erfolgreicher Testausführung werden Coverage-Daten zu Codacy hochgeladen.
+
+// Die Coverage-Werte variieren je nach Komponente: Command-Builder erreichen 75-85%, Loader 70-80%, Controller 60-70%, während Presentation-Layer und UI-Rendering mit 40-55% bzw. 25-40% deutlich niedriger liegen – was für Terminal-Anwendungen typisch ist. Die Testsuite umfasst über 80 Unit-Test-Dateien mit etwa 2500 Testfunktionen und mehr als 450 Integrationstests. Dank Parallelisierung beträgt die Laufzeit 15-20 Minuten statt über einer Stunde.
+
 #pagebreak()
 = Entwurf eigener Testfälle
 
@@ -246,19 +232,19 @@ Lazygit verfügt über 80+ Test-Dateien mit ~2500 Unit-Test-Funktionen. Unit-Tes
 
 = Fazit
 
-Diese Arbeit analysierte das Testkonzept von lazygit umfassend und erweiterte es durch eigene Testfälle. Lazygit verfügt über eine ausgereifte Teststrategie mit Unit-Tests, Table-Driven Tests, Integrationstests und robuster CI/CD-Pipeline, die als Vorbild für andere Go-Projekte dienen kann.
-
-Die durchgeführten Arbeiten umfassten mehrere Phasen: Die initiale Analyse identifizierte Testlücken in Tag-Kommandos und StringStack durch Coverage-Analysen und Code-Reviews. Die Implementierung umfasste 18 Testfälle mit 13 Sub-Tests für Tags und fünf für Stack-Operationen, alle im table-driven bzw. zustandsbasierten Test-Stil. Die Erstellung umfassender Dokumentation in `TEST_ERKLAERUNG.md` bietet didaktisches Material für neue Contributors. Alle Tests wurden erfolgreich in die CI-Pipeline integriert und bestehen auf allen Plattformen.
-
-Die theoretischen Grundlagen des Software-Testens wurden praktisch angewendet und validiert. Table-driven Tests demonstrieren Go-Best-Practices für maximale Testabdeckung mit minimalem Code-Overhead. Mock-basiertes Testing zeigt, wie Unit-Tests schnell und deterministisch gestaltet werden können. Die Kombination von Unit- und Integrationstests folgt dem Pyramiden-Modell und optimiert die Balance zwischen Geschwindigkeit und Gründlichkeit.
-
-Lazygit dient als exzellentes Beispiel für durchdachte Teststrategien in Open-Source-Projekten. Die konsequente Anwendung von Testing-Best-Practices trägt zur hohen Code-Qualität bei und ermöglicht schnelle, konfidente Entwicklung. Die erstellten Tests und Dokumentationen verbessern die Codequalität nachhaltig und erleichtern zukünftigen Mitwirkenden den Einstieg.
-
-Persönlich war diese Arbeit lehrreich in mehrfacher Hinsicht. Die praktische Arbeit an einem realen Open-Source-Projekt vermittelte Einblicke, die durch rein akademische Übungen nicht möglich wären. Die Herausforderung, Tests für existierenden Code zu schreiben, unterscheidet sich fundamental von Test-First-Ansätzen und erfordert sorgfältige Analyse. Die Notwendigkeit, Projekt-Konventionen zu folgen und sich in bestehende Code-Bases einzuarbeiten, spiegelt realistische Berufspraxis wider.
-
-Die Erkenntnisse dieser Arbeit sind über lazygit hinaus wertvoll. Table-driven Tests sind in jedem Go-Projekt anwendbar. Mock-basierte Unit-Tests sind sprachübergreifend relevant. Die CI/CD-Patterns mit GitHub Actions lassen sich auf andere Projekte übertragen. Und die systematische Identifikation von Testlücken ist eine Fähigkeit, die in jeder professionellen Software-Entwicklung benötigt wird.
-
-Zukünftige Arbeiten könnten diese Analyse erweitern durch Performance-Benchmarking kritischer Komponenten, Mutation-Testing zur Validierung der Test-Qualität, End-to-End-Test-Automatisierung für komplexere User-Journeys oder Fuzz-Testing für Parser und Input-Validierung. Lazygit bietet ein reichhaltiges Umfeld für weitere Experimente im Software-Testing.
+// Diese Arbeit analysierte das Testkonzept von lazygit umfassend und erweiterte es durch eigene Testfälle. Lazygit verfügt über eine ausgereifte Teststrategie mit Unit-Tests, Table-Driven Tests, Integrationstests und robuster CI/CD-Pipeline, die als Vorbild für andere Go-Projekte dienen kann.
+//
+// Die durchgeführten Arbeiten umfassten mehrere Phasen: Die initiale Analyse identifizierte Testlücken in Tag-Kommandos und StringStack durch Coverage-Analysen und Code-Reviews. Die Implementierung umfasste 18 Testfälle mit 13 Sub-Tests für Tags und fünf für Stack-Operationen, alle im table-driven bzw. zustandsbasierten Test-Stil. Die Erstellung umfassender Dokumentation in `TEST_ERKLAERUNG.md` bietet didaktisches Material für neue Contributors. Alle Tests wurden erfolgreich in die CI-Pipeline integriert und bestehen auf allen Plattformen.
+//
+// Die theoretischen Grundlagen des Software-Testens wurden praktisch angewendet und validiert. Table-driven Tests demonstrieren Go-Best-Practices für maximale Testabdeckung mit minimalem Code-Overhead. Mock-basiertes Testing zeigt, wie Unit-Tests schnell und deterministisch gestaltet werden können. Die Kombination von Unit- und Integrationstests folgt dem Pyramiden-Modell und optimiert die Balance zwischen Geschwindigkeit und Gründlichkeit.
+//
+// Lazygit dient als exzellentes Beispiel für durchdachte Teststrategien in Open-Source-Projekten. Die konsequente Anwendung von Testing-Best-Practices trägt zur hohen Code-Qualität bei und ermöglicht schnelle, konfidente Entwicklung. Die erstellten Tests und Dokumentationen verbessern die Codequalität nachhaltig und erleichtern zukünftigen Mitwirkenden den Einstieg.
+//
+// Persönlich war diese Arbeit lehrreich in mehrfacher Hinsicht. Die praktische Arbeit an einem realen Open-Source-Projekt vermittelte Einblicke, die durch rein akademische Übungen nicht möglich wären. Die Herausforderung, Tests für existierenden Code zu schreiben, unterscheidet sich fundamental von Test-First-Ansätzen und erfordert sorgfältige Analyse. Die Notwendigkeit, Projekt-Konventionen zu folgen und sich in bestehende Code-Bases einzuarbeiten, spiegelt realistische Berufspraxis wider.
+//
+// Die Erkenntnisse dieser Arbeit sind über lazygit hinaus wertvoll. Table-driven Tests sind in jedem Go-Projekt anwendbar. Mock-basierte Unit-Tests sind sprachübergreifend relevant. Die CI/CD-Patterns mit GitHub Actions lassen sich auf andere Projekte übertragen. Und die systematische Identifikation von Testlücken ist eine Fähigkeit, die in jeder professionellen Software-Entwicklung benötigt wird.
+//
+// Zukünftige Arbeiten könnten diese Analyse erweitern durch Performance-Benchmarking kritischer Komponenten, Mutation-Testing zur Validierung der Test-Qualität, End-to-End-Test-Automatisierung für komplexere User-Journeys oder Fuzz-Testing für Parser und Input-Validierung. Lazygit bietet ein reichhaltiges Umfeld für weitere Experimente im Software-Testing.
 
 #pagebreak()
 #show link: set text(fill: black)

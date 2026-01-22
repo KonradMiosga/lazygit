@@ -70,3 +70,13 @@ record-demo:
 .PHONY: vendor
 vendor:
 	go mod vendor && go mod tidy
+
+.PHONY: coverage
+coverage:
+	rm -rf /tmp/code_coverage
+	mkdir -p /tmp/code_coverage
+	GOFLAGS='-mod=vendor' go test ./... -short -cover -args -test.gocoverdir=/tmp/code_coverage
+	LAZYGIT_GOCOVERDIR=/tmp/code_coverage ./scripts/run_integration_tests.sh
+	go tool covdata textfmt -i=/tmp/code_coverage -o coverage.out
+	go tool cover -html=coverage.out -o coverage.html
+
