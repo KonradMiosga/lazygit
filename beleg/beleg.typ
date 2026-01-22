@@ -1,4 +1,29 @@
 #import "template.typ": *
+#import "@preview/codly:1.3.0"
+#import "@preview/codly-languages:0.1.1": *
+#show: codly-init.with()
+#import "@preview/codelst:2.0.2": sourcecode
+
+#let code-figure(
+  caption,
+  label,
+  numbers: false,
+  body,
+) = [
+  #block[
+    #sourcecode.with(numbers: numbers)[
+      #body
+    ]
+
+    #v(6pt)
+    #align(center)[
+      #text(size: 9pt, fill: luma(80))[#caption]
+    ]
+  ] #label
+]
+
+
+
 #show: title-page.with(
   title: [Testkonzept für das Open-Source-Projekt „lazygit"],
   subtitle: [Belegarbeit im Studiengang Informatik (B.Sc.)],
@@ -162,32 +187,230 @@ Der praktische Teil dieser Arbeit bestand darin, Testlücken im Lazygit-Projekt 
 
 == Identifikation von Testlücken
 
-Die Analyse der Coverage-Reports aus der CI-Pipeline in Kombination mit manuellen Code-Reviews identifizierte zwei signifikante Testlücken. Die Tag-Kommandos in `pkg/commands/git_commands/tag.go` enthielten acht Funktionen ohne jegliche Testabdeckung. Tags sind in Git zentral für die Versionsverwaltung, weshalb fehlerhafte Implementierungen zu versehentlich überschriebenen oder falsch gesetzten Tags führen können. Die zweite Lücke betraf die `StringStack`-Datenstruktur in `pkg/utils/string_stack.go`, eine LIFO-Implementierung ohne Tests. Die Priorisierung erfolgte nach Kritikalität, wobei die Tag-Funktionen als wichtiger eingestuft wurden.
+Die Analyse der Coverage-Reports in Kombination mit manuellen Code-Reviews identifizierte zwei signifikante Testlücken. Die Tag-Kommandos in `pkg/commands/git_commands/tag.go` enthielten acht Funktionen ohne jegliche Testabdeckung. Tags sind in Git zentral für die Versionsverwaltung, weshalb fehlerhafte Implementierungen zu versehentlich überschriebenen oder falsch gesetzten Tags führen können.
+```bash
+/lazygit/pkg/commands/git_commands/tag.go:14:	NewTagCommands			 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:20:	CreateLightweightObj 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:30:	CreateAnnotatedObj	 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:40:	HasTag							 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:49:	LocalDelete					 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:56:	Push								 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:71:	ShowAnnotationInfo	 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:80:	IsTagAnnotated			 0.0%
+```
+Die zweite Lücke betraf die `StringStack`-Datenstruktur in `pkg/utils/string_stack.go`, eine LIFO-Implementierung ohne Tests.
+```bash
+/lazygit/pkg/utils/string_stack.go:7:					Push								 0.0%
+/lazygit/pkg/utils/string_stack.go:11:				Pop								   0.0%
+/lazygit/pkg/utils/string_stack.go:21:				IsEmpty							 0.0%
+/lazygit/pkg/utils/string_stack.go:25:				Clear								 0.0%
+```
 
-== Analyse und Testfalldesign
+Die Priorisierung erfolgte nach Kritikalität, wobei die Tag-Funktionen als wichtiger eingestuft wurden.
+#pagebreak()
+== Analyse und Testfalldesign - tag.go
 
-Die Tag-Funktionen konstruieren Git-Befehle programmatisch mit Hilfsfunktionen wie `NewGitCmd` und `ArgIf`, die Argumente nur unter bestimmten Bedingungen hinzufügen. Beispielsweise fügt `ArgIf(force, "--force")` das Force-Flag nur bei Bedarf hinzu. Diese bedingte Logik ist fehleranfällig und erfordert Tests für verschiedene Parameter-Kombinationen.
+=== Anforderungsanalyse
 
-Für die Tag-Kommandos wurde Table-Driven Testing gewählt, da dies dem Projekt-Standard entspricht und sich optimal für Parametervariationen eignet. Die Tests für `CreateLightweightObj` decken vier Szenarien ab: einfacher Tag auf HEAD, Tag auf spezifischem Commit, Force-Flag zum Überschreiben existierender Tags und die Kombination aller Parameter. Für `CreateAnnotatedObj` wurden analoge Tests mit zusätzlichem Message-Parameter entwickelt. Die Funktion `IsTagAnnotated` parst Git-Ausgaben ("commit" vs. "tag") und erhielt Tests mit verschiedenen Ausgabeformaten inklusive Whitespace-Varianten.
+Die Tag-Verwaltung in lazygit erfüllt zentrale Anforderungen der Git-Versionskontrolle:
 
-Für `StringStack` wurde ein zustandsbasierter Testansatz gewählt. Die Tests validieren LIFO-Semantik (`TestStringStack_PushAndPop`), das Verhalten bei leerem Stack (`TestStringStack_PopEmptyStack`), Zustandsprüfung (`TestStringStack_IsEmpty`), vollständiges Zurücksetzen (`TestStringStack_Clear`) und komplexe Operationssequenzen (`TestStringStack_MultipleOperations`).
+*Funktionale Anforderungen:*
+#table(
+  columns: (auto, 1fr),
+  [FA-01], [Erstellung von Lightweight Tags (einfache Commit-Pointer)],
+  [FA-02], [ Erstellung von Annotated Tags mit Metadaten (Autor, Datum, Message)],
+  [FA-03], [ Tags auf beliebigen Commits erstellen (nicht nur HEAD)],
+  [FA-04], [ Überschreiben existierender Tags mit Force-Flag],
+  [FA-05], [ Lokales Löschen von Tags],
+  [FA-06], [ Unterscheidung zwischen Annotated und Lightweight Tags],
+)
+//
+// *Nicht-funktionale Anforderungen:*
+// - NFR-TAG-01: Korrekte Git-Kommandos generieren (Repository-Integrität)
+// - NFR-TAG-02: Sichere Parameter-Übergabe (Input-Validierung)
 
-== Implementierung
+=== Use-Case-Analyse
 
-Die Tag-Tests wurden in `tag_test.go` implementiert und folgen strikt den Projekt-Konventionen. Jeder Testfall definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten:
+Aus der Anforderungsanalyse wurden vier zentrale Use Cases abgeleitet, die das Testdesign maßgeblich beeinflussen:
+
+#table(
+  columns: (auto, 1fr, auto),
+  [*UC*], [*Beschreibung*], [*Priorität*],
+  [UC-01], [Release-Version taggen: Entwickler markiert Commits mit einer Versionen], [Hoch],
+  [UC-02], [Fehlerhaften Tag lokal korrigieren: Vor Remote-Push Fehler beheben], [Mittel],
+  [UC-03], [Tag-Informationen anzeigen: Unterscheidung Lightweight/Annotated], [Hoch],
+  [UC-04], [Bestehenden Tag verschieben: Rolling-Tags (latest, stable) aktualisieren], [Mittel],
+)
+
+// *UC-01: Release-Version taggen* ist der primäre Workflow. Benutzer navigieren zu einem Commit, drücken `n` und geben einen Tag-Namen ein. Das System unterscheidet automatisch zwischen Lightweight (keine Beschreibung) und Annotated Tags (mit Message oder GPG-Signierung). Bei existierenden Tags erfolgt eine Force-Bestätigung. Dieser Use Case validiert FR-TAG-01 bis FR-TAG-04.
+//
+// *UC-04: Bestehenden Tag verschieben* adressiert zwei Szenarien: Fehlerkorrektur (Tag auf falschem Commit) und Rolling-Tags (kontinuierliche Aktualisierung von "latest"-Tags). Die `--force`-Option ermöglicht das Überschreiben, erfordert aber explizite Benutzerbestätigung zur Vermeidung versehentlicher Datenverluste.
+
+=== Testbedingungen
+
+Aus den Use Cases wurden sieben konkrete Testbedingungen abgeleitet:
+
+#table(
+  columns: (auto, 1fr, 1fr),
+  [*ID*], [*Bedingung*], [*Erwartetes Verhalten*],
+  [TB-01], [Lightweight Tag ohne Ref], [`git tag -- <name>`],
+  [TB-02], [Tag auf spezifischem Commit], [`git tag -- <name> <ref>`],
+  [TB-03], [Force-Flag gesetzt], [`--force` Flag inkludiert],
+  [TB-04], [Force + spezifischer Commit], [Kombination beider Flags],
+  [TB-05], [Annotated Tag mit Message], [`-m <message>` Parameter],
+  [TB-06], [Tag-Typ erkennen], [`git cat-file -t` Output parsen],
+  [TB-07], [Tag löschen], [`git tag -d <name>` ausführen],
+)
+
+=== Testfalldesign
+
+Die Tag-Funktionen konstruieren Git-Befehle programmatisch mit Hilfsfunktionen wie `NewGitCmd` und `ArgIf`. Die Funktion `ArgIf(condition, arg)` fügt Argumente nur hinzu wenn die Bedingung erfüllt ist. Diese bedingte Logik bestimmt die Code-Pfade und damit die notwendigen Testfälle.
+
+==== Code-Analyse für CreateLightweightObj
+
+Die Funktion `CreateLightweightObj(tagName string, ref string, force bool)` enthält folgende relevante Code-Verzweigungen:
 
 ```go
-{
-    testName: "create lightweight tag on HEAD",
-    tagName:  "v1.0",
-    commitSha: "",
-    force:    false,
-    expectedArgs: []string{"tag", "v1.0"},
+NewGitCmd("tag").
+    ArgIf(force, "--force").        // Bedingung: force == true?
+    Arg("--", tagName).             // Keine Bedingung
+    ArgIf(len(ref) > 0, ref).       // Bedingung: ref nicht-leer?
+```
+
+Daraus ergeben sich zwei entscheidungsrelevante Bedingungen:
+- `force`: true oder false
+- `len(ref) > 0`: ref leer oder nicht-leer
+
+Der Parameter `tagName` durchläuft keine Verzweigungslogik und wird unverändert an Git übergeben.
+
+==== Äquivalenzklassenbildung
+
+Äquivalenzklassen werden streng nach Code-Logik gebildet, nicht nach Domänenwissen:
+
+*Parameter tagName:*
+- **1 Äquivalenzklasse:** Beliebiger String
+- Begründung: `Arg("--", tagName)` führt keine Validierung oder Unterscheidung durch
+- Repräsentant: "v1.0.0" (konsistent in allen Tests verwendet)
+
+*Parameter ref:*
+- **Klasse 1:** Leer (`""`) → `len(ref) > 0` ist false → ref wird nicht hinzugefügt
+- **Klasse 2:** Nicht-leer (z.B. `"abc123"`) → `len(ref) > 0` ist true → ref wird hinzugefügt
+- Begründung: Verzweigung im Code unterscheidet explizit zwischen leer und nicht-leer
+
+*Parameter force:*
+- **Klasse 1:** false → `--force` Flag wird nicht hinzugefügt  
+- **Klasse 2:** true → `--force` Flag wird hinzugefügt
+- Begründung: Boolean-Parameter mit direkter Code-Verzweigung
+
+==== Kombinatorische Testabdeckung
+
+Aus den Äquivalenzklassen ergeben sich folgende Kombinationen:
+- tagName: 1 Klasse
+- ref: 2 Klassen (leer, nicht-leer)
+- force: 2 Klassen (false, true)
+
+**Gesamtkombinationen:** 1 × 2 × 2 = **4 Testfälle**
+
+Da nur 4 Kombinationen existieren, entspricht vollständige Kombinatorik der Pairwise-Coverage. Alle möglichen Interaktionen zwischen den Parametern werden abgedeckt:
+
+#table(
+  columns: (auto, auto, auto, auto),
+  [*Test*], [*ref*], [*force*], [*Erwartetes Kommando*],
+  [TF-01], [leer], [false], [`git tag -- v1.0.0`],
+  [TF-02], [nicht-leer], [false], [`git tag -- v1.0.0 abc123`],
+  [TF-03], [leer], [true], [`git tag --force -- v1.0.0`],
+  [TF-04], [nicht-leer], [true], [`git tag --force -- v1.0.0 def456`],
+)
+
+TF-04 ist der kritischste Test, da beide bedingte Argumente (`--force` und `ref`) gleichzeitig aktiv sind und die korrekte Argument-Reihenfolge validiert wird.
+
+==== Weitere Entwurfstechniken
+
+*Grenzwertanalyse für IsTagAnnotated:*
+
+Die Funktion `IsTagAnnotated` parst Git-Output und muss robuste String-Verarbeitung gewährleisten. Getestet werden:
+- Exakte Übereinstimmung: `"tag\n"` (Annotated) vs. `"commit\n"` (Lightweight)
+- Whitespace-Toleranz: `"  tag  \n"` (mit führenden/nachfolgenden Leerzeichen)
+- Edge Case: Leerer String (implizit durch `strings.TrimSpace` abgedeckt)
+
+*Table-Driven Testing:*
+
+Das Implementierungspattern folgt dem Projekt-Standard. Jeder Test definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten, die in einer Schleife ausgeführt werden. Dies ermöglicht kompakte, wartbare Tests mit klarer Trennung von Testdaten und Testlogik.
+
+==== Testfallübersicht
+
+Die resultierende Test-Suite umfasst 12 Testfälle:
+- 4 für `CreateLightweightObj` (TF-01 bis TF-04) - vollständige Kombinatorik
+- 4 für `CreateAnnotatedObj` (TF-05 bis TF-08) - analog mit zusätzlichem `msg`-Parameter
+- 3 für `IsTagAnnotated` (TF-09 bis TF-11) - Grenzwertanalyse für Output-Parsing
+- 1 für `LocalDelete` (TF-12) - direkter Funktionsaufruf ohne Parametervariationen
+
+Diese Testfälle validieren alle sieben Testbedingungen (TB-01 bis TB-07) und decken somit alle funktionalen Anforderungen (FR-TAG-01 bis FR-TAG-06) ab.
+
+== Implementierung - tag.go
+
+Die Tag-Tests wurden in `tag_test.go` implementiert und folgen strikt den Projekt-Konventionen. Jeder Testfall definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten.
+Beispielhaft sei hier das implementierte Szenario für `TF-01` dargestellt.
+
+```go
+//...
+func TestTagCommands_CreateLightweightObj(t *testing.T) {
+	type scenario struct {
+		testName        string
+		tagName         string
+		ref             string
+		force           bool
+		expectedCmdArgs []string
+	}
+
+	scenarios := []scenario{
+    {
+      testName:        "create simple lightweight tag on HEAD",
+      tagName:         "v1.0.0",
+      ref:             "",
+      force:           false,
+      expectedCmdArgs: []string{"git", "tag", "--", "v1.0.0"},
+    }
+  },
+  //...
+  	for _, s := range scenarios {
+		t.Run(s.testName, func(t *testing.T) {
+			runner := oscommands.NewFakeRunner(t)
+			gitCommon := buildGitCommon(commonDeps{runner: runner})
+			tagCommands := NewTagCommands(gitCommon)
+
+			cmdObj := tagCommands.CreateLightweightObj(s.tagName, s.ref, s.force)
+
+			assert.Equal(t, s.expectedCmdArgs, cmdObj.Args())
+		})
+	}
 }
 ```
 
 Der `FakeCmdObjRunner` simuliert Git-Befehle ohne tatsächliche Ausführung. Für jeden Testfall werden die erwarteten Argumente beim Fake-Runner registriert, die Funktion ausgeführt und anschließend mit `CheckForMissingCalls()` validiert, dass alle erwarteten Befehle aufgerufen wurden.
 
+Die vollständige Implementierung ist in @tag_test ersichtlich.
+
+== Testergebnisse und Coverage-Verbesserung - tag.go
+Die Coverage-Analyse zeigt signifikante Verbesserungen für `tag.go`, wo fünf von acht Funktionen auf 100% Coverage gebracht wurden:
+
+```bash
+/lazygit/pkg/commands/git_commands/tag.go:14:	NewTagCommands			 100.0%
+/lazygit/pkg/commands/git_commands/tag.go:20:	CreateLightweightObj 100.0%
+/lazygit/pkg/commands/git_commands/tag.go:30:	CreateAnnotatedObj	 100.0%
+/lazygit/pkg/commands/git_commands/tag.go:40:	HasTag							 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:49:	LocalDelete					 100.0%
+/lazygit/pkg/commands/git_commands/tag.go:56:	Push								 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:71:	ShowAnnotationInfo	 0.0%
+/lazygit/pkg/commands/git_commands/tag.go:80:	IsTagAnnotated			 100.0%
+```
+Die drei verbleibenden Funktionen (`HasTag`, `Push`, `ShowAnnotationInfo`) sind Remote-Operationen, die Netzwerk-Kommunikation erfordern und besser durch Integrationstests abgedeckt werden. Die Gesamt-Coverage von `tag.go` stieg von 0% auf 62.5%.
+
+== Analyse und Testfalldesign - string_stack.go
+Für `StringStack` wurde ein zustandsbasierter Testansatz gewählt. Die Tests validieren LIFO-Semantik (`TestStringStack_PushAndPop`), das Verhalten bei leerem Stack (`TestStringStack_PopEmptyStack`), Zustandsprüfung (`TestStringStack_IsEmpty`), vollständiges Zurücksetzen (`TestStringStack_Clear`) und komplexe Operationssequenzen (`TestStringStack_MultipleOperations`).
+
+
+== Implementierung - string_stack.go
 Die StringStack-Tests verwenden klassisches Unit-Testing ohne Table-Driven-Ansatz, da primär Zustandsübergänge getestet werden:
 
 ```go
@@ -195,31 +418,22 @@ func TestStringStack_PushAndPop(t *testing.T) {
     stack := NewStringStack()
     stack.Push("first")
     stack.Push("second")
-    
+
     assert.Equal(t, "second", stack.Pop())
     assert.Equal(t, "first", stack.Pop())
 }
 ```
 
-== Testergebnisse und Coverage-Verbesserung
+== Testergebnisse und Coverage-Verbesserung - string_stack.go
 
-Insgesamt wurden 18 Tests implementiert: 13 für Tag-Operationen und 5 für StringStack. Die lokale Ausführung mit `go test ./pkg/commands/git_commands -run TestTag -v` dauert unter 10 Millisekunden. Die CI-Pipeline validierte alle Tests erfolgreich auf Ubuntu und Windows ohne plattformspezifische Probleme.
 
-Die Coverage-Analyse zeigt signifikante Verbesserungen für `tag.go`, wo fünf von acht Funktionen auf 100% Coverage gebracht wurden:
-- `NewTagCommands`: 0% → 100%
-- `CreateLightweightObj`: 0% → 100%
-- `CreateAnnotatedObj`: 0% → 100%
-- `LocalDelete`: 0% → 100%
-- `IsTagAnnotated`: 0% → 100%
 
-Die drei verbleibenden Funktionen (`HasTag`, `Push`, `ShowAnnotationInfo`) sind Remote-Operationen, die Netzwerk-Kommunikation erfordern und besser durch Integrationstests abgedeckt werden. Die Gesamt-Coverage von `tag.go` stieg von 0% auf 62.5%.
-
-Für `string_stack.go` wurde vollständige Coverage erreicht:
-- `Push`: 0% → 100%
-- `Pop`: 0% → 100%
-- `IsEmpty`: 0% → 100%
-- `Clear`: 0% → 100%
-
+```bash
+/lazygit/pkg/utils/string_stack.go:7:					Push								 100.0%
+/lazygit/pkg/utils/string_stack.go:11:				Pop								   100.0%
+/lazygit/pkg/utils/string_stack.go:21:				IsEmpty							 100.0%
+/lazygit/pkg/utils/string_stack.go:25:				Clear								 100.0%
+```
 Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` von 37.1% auf 37.6% (+0.5 Prozentpunkte) und `pkg/utils` von 58.2% auf 59.6% (+1.4 Prozentpunkte). Obwohl die prozentualen Verbesserungen moderat erscheinen, schließen sie konkrete Lücken in wichtigen Funktionen innerhalb umfangreicher Packages.
 
 = Testauswertung und Metriken
@@ -250,3 +464,405 @@ Lazygit verfügt über 80+ Test-Dateien mit ~2500 Unit-Test-Funktionen. Unit-Tes
 #show link: set text(fill: black)
 #show bibliography: set heading(level: 2)
 #bibliography("biblio.bib", title: "Quellen", style: "ieee")
+
+= Anhang
+#show figure: set block(breakable: true)
+#figure(
+  caption: "tag_test.go",
+  kind: image,
+)[```go
+//tag_test.go
+package git_commands
+
+import (
+	"testing"
+
+	"github.com/jesseduffield/lazygit/pkg/commands/oscommands"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestTagCommands_CreateLightweightObj(t *testing.T) {
+	type scenario struct {
+		testName        string
+		tagName         string
+		ref             string
+		force           bool
+		expectedCmdArgs []string
+	}
+
+	scenarios := []scenario{
+		{
+      //TF-01
+			testName:        "create simple lightweight tag on HEAD",
+			tagName:         "v1.0.0",
+			ref:             "",
+			force:           false,
+			expectedCmdArgs: []string{"git", "tag", "--", "v1.0.0"},
+		},
+		{
+      //TF-02
+			testName:        "create lightweight tag on specific commit",
+			tagName:         "v1.0.0",
+			ref:             "abc123",
+			force:           false,
+			expectedCmdArgs: []string{"git", "tag", "--", "v1.0.0", "abc123"},
+		},
+		{
+      //TF-03
+			testName:        "create lightweight tag with force flag",
+			tagName:         "v1.0.0",
+			ref:             "",
+			force:           true,
+			expectedCmdArgs: []string{"git", "tag", "--force", "--", "v1.0.0"},
+		},
+		{
+      //TF-04
+			testName:        "create forced lightweight tag on specific commit",
+			tagName:         "v1.0.0",
+			ref:             "def456",
+			force:           true,
+			expectedCmdArgs: []string{"git", "tag", "--force", "--", "v1.0.0", "def456"},
+		},
+	}
+
+	for _, s := range scenarios {
+		t.Run(s.testName, func(t *testing.T) {
+			runner := oscommands.NewFakeRunner(t)
+			gitCommon := buildGitCommon(commonDeps{runner: runner})
+			tagCommands := NewTagCommands(gitCommon)
+
+			cmdObj := tagCommands.CreateLightweightObj(s.tagName, s.ref, s.force)
+
+			assert.Equal(t, s.expectedCmdArgs, cmdObj.Args())
+		})
+	}
+}
+
+func TestTagCommands_CreateAnnotatedObj(t *testing.T) {
+	type scenario struct {
+		testName        string
+		tagName         string
+		ref             string
+		msg             string
+		force           bool
+		expectedCmdArgs []string
+	}
+
+	scenarios := []scenario{
+		{
+      //TF-05
+			testName:        "create annotated tag on HEAD",
+			tagName:         "v1.0.0",
+			ref:             "",
+			msg:             "Release version 1.0.0",
+			force:           false,
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "-m", "Release version 1.0.0"},
+		},
+		{
+      //TF-06
+			testName:        "create annotated tag on specific commit",
+			tagName:         "v1.0.0",
+			ref:             "abc123",
+			msg:             "Major release",
+			force:           false,
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "abc123", "-m", "Major release"},
+		},
+		{
+      //TF-07
+			testName:        "create forced annotated tag",
+			tagName:         "v1.0.0",
+			ref:             "",
+			msg:             "Latest stable",
+			force:           true,
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "--force", "-m", "Latest stable"},
+		},
+		{
+      //TF-08
+			testName:        "create forced annotated tag on specific commit",
+			tagName:         "v1.0.0",
+			ref:             "xyz789",
+			msg:             "Beta version",
+			force:           true,
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "--force", "xyz789", "-m", "Beta version"},
+		},
+	}
+
+	for _, s := range scenarios {
+		t.Run(s.testName, func(t *testing.T) {
+			runner := oscommands.NewFakeRunner(t)
+			gitCommon := buildGitCommon(commonDeps{runner: runner})
+			tagCommands := NewTagCommands(gitCommon)
+
+			cmdObj := tagCommands.CreateAnnotatedObj(s.tagName, s.ref, s.msg, s.force)
+
+			assert.Equal(t, s.expectedCmdArgs, cmdObj.Args())
+		})
+	}
+}
+
+func TestTagCommands_IsTagAnnotated(t *testing.T) {
+	type scenario struct {
+		testName       string
+		tagName        string
+		gitOutput      string
+		gitError       error
+		expectedResult bool
+		expectedError  error
+	}
+
+	scenarios := []scenario{
+		{
+      //TF-09
+			testName:       "tag is annotated",
+			tagName:        "v1.0.0",
+			gitOutput:      "tag\n",
+			gitError:       nil,
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+      //TF-10
+			testName:       "tag is lightweight",
+			tagName:        "v1.0.0",
+			gitOutput:      "commit\n",
+			gitError:       nil,
+			expectedResult: false,
+			expectedError:  nil,
+		},
+		{
+      //TF-11
+			testName:       "tag with extra whitespace",
+			tagName:        "v1.0.0",
+			gitOutput:      "  tag  \n",
+			gitError:       nil,
+			expectedResult: true,
+			expectedError:  nil,
+		},
+	}
+
+	for _, s := range scenarios {
+		t.Run(s.testName, func(t *testing.T) {
+			runner := oscommands.NewFakeRunner(t).
+				ExpectGitArgs([]string{"cat-file", "-t", "refs/tags/" + s.tagName}, s.gitOutput, s.gitError)
+
+			gitCommon := buildGitCommon(commonDeps{runner: runner})
+			tagCommands := NewTagCommands(gitCommon)
+
+			result, err := tagCommands.IsTagAnnotated(s.tagName)
+
+			assert.Equal(t, s.expectedResult, result)
+			if s.expectedError != nil {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			runner.CheckForMissingCalls()
+		})
+	}
+}
+
+//TF-12
+func TestTagCommands_LocalDelete(t *testing.T) {
+	runner := oscommands.NewFakeRunner(t).
+		ExpectGitArgs([]string{"tag", "-d", "v1.0.0"}, "", nil)
+
+	gitCommon := buildGitCommon(commonDeps{runner: runner})
+	tagCommands := NewTagCommands(gitCommon)
+
+	err := tagCommands.LocalDelete("v1.0.0")
+
+	assert.NoError(t, err)
+	runner.CheckForMissingCalls()
+}
+```]<tag_test>
+
+// ---------------------------------------------
+// Use Case Tabellen – Tag-Verwaltung (lazygit)
+// ---------------------------------------------
+
+#let uc-table(title, rows) = [
+  #table(
+    columns: (22%, 78%),
+    inset: 6pt,
+    align: (left, left),
+    stroke: (x: 0.6pt, y: 0.6pt),
+    [*Use Case*], [*#title*],
+    ..rows.join(),
+  )
+]
+
+// Helper: Zeile erzeugen
+#let uc-row(key, value) = ([*#key*], [#value])
+
+// ---------------------------------------------
+// UC1: Release-Version taggen
+// ---------------------------------------------
+#uc-table("UC1: Release-Version taggen", (
+  uc-row("Akteur", "Software-Entwickler"),
+  uc-row("Vorbedingungen", [
+    - Repository ist in lazygit geöffnet
+    - Commit für Release ist ausgewählt (z. B. im Commits-View oder Branches-View)
+  ]),
+  uc-row("Trigger", "Benutzer drückt `n` (new tag)"),
+  uc-row("Hauptszenario", [
+    1. System zeigt Eingabemaske mit zwei Feldern:
+      - Tag-Name (z. B. \"v1.0.0\")
+      - Optional: Tag-Beschreibung
+    2. Benutzer gibt Tag-Name ein
+    3. Benutzer entscheidet:
+      - Beschreibung leer lassen → Lightweight Tag
+      - Beschreibung eingeben → Annotated Tag
+    4. System prüft, ob Tag bereits existiert (HasTag)
+    5. System erstellt Tag auf ausgewähltem Commit
+    6. System aktualisiert Tags- und Commits-View
+    7. System zeigt Erfolgsmeldung
+  ]),
+  uc-row("Alternativszenarien", [
+    *4a. Tag existiert bereits:*
+    - 4a1. System zeigt Prompt: \"Force tag 'v1.0.0'? (Cancel: Esc, Confirm: Enter)\"
+    - 4a2. Benutzer bestätigt → Tag wird mit `--force` überschrieben
+    - 4a3. Benutzer bricht ab → Keine Änderung
+
+    *5a. GPG-Signierung ist aktiviert:*
+    - 5a1. System erstellt immer Annotated Tag (auch ohne Beschreibung)
+    - 5a2. System fordert GPG-Passphrase an
+    - 5a3. Tag wird signiert erstellt
+
+    *7a. Git-Fehler (z. B. ungültiger Tag-Name):*
+    - System zeigt Fehlermeldung
+    - Benutzer kann erneut eingeben
+  ]),
+  uc-row("Nachbedingungen", [
+    - Tag ist lokal auf dem ausgewählten Commit erstellt
+    - Tag erscheint in der Tags-Liste
+  ]),
+  uc-row("Geschäftsregeln", [
+    - Annotated Tags werden erstellt bei: Beschreibung vorhanden ODER GPG-Signing aktiviert
+    - Lightweight Tags werden erstellt bei: Keine Beschreibung UND kein GPG-Signing
+    - Force-Flag wird automatisch gesetzt, wenn Tag bereits existiert und Benutzer bestätigt
+  ]),
+  uc-row("Häufigkeit", "Hoch (bei jedem Release, Milestone, Hotfix)"),
+))
+
+// ---------------------------------------------
+// UC2: Fehlerhaften Tag lokal korrigieren
+// ---------------------------------------------
+#uc-table("UC2: Fehlerhaften Tag lokal korrigieren", (
+  uc-row("Akteur", "Software-Entwickler"),
+  uc-row("Vorbedingungen", [
+    - Repository ist geöffnet
+    - Tag existiert lokal
+    - Tag wurde noch nicht gepusht (oder Benutzer ist sich der Konsequenzen bewusst)
+  ]),
+  uc-row("Trigger", [
+    - Benutzer navigiert zu Tags-View
+    - Wählt fehlerhaften Tag aus
+    - Drückt `d` (delete)
+  ]),
+  uc-row("Hauptszenario", [
+    1. System zeigt Menü mit 3 Optionen:
+      - `c` - Delete local tag
+      - `r` - Delete remote tag
+      - `b` - Delete both local and remote
+    2. Benutzer wählt `c` (local delete)
+    3. System führt `LocalDelete(tagName)` aus
+    4. System entfernt Tag aus lokaler Datenbank
+    5. System aktualisiert Tags-View
+    6. Tag verschwindet aus der Liste
+  ]),
+  uc-row("Alternativszenarien", [
+    *2a. Benutzer wählt Remote Delete:*
+    - 2a1. System fragt nach Bestätigung
+    - 2a2. System pusht Tag-Löschung zum Remote
+
+    *2b. Benutzer wählt Both:*
+    - 2b1. Lokaler Tag wird gelöscht
+    - 2b2. Remote Tag wird gelöscht (mit Bestätigung)
+  ]),
+  uc-row("Nachbedingungen", [
+    - Tag existiert nicht mehr lokal
+    - Benutzer kann neuen Tag mit korrektem Namen/Commit erstellen
+  ]),
+  uc-row("Häufigkeit", "Mittel (bei Tippfehlern, falschen Commits)"),
+))
+
+// ---------------------------------------------
+// UC3: Tag-Informationen anzeigen
+// ---------------------------------------------
+#uc-table("UC3: Tag-Informationen anzeigen", (
+  uc-row("Akteur", "Software-Entwickler"),
+  uc-row("Vorbedingungen", [
+    - Repository ist geöffnet
+    - Tags existieren
+  ]),
+  uc-row("Trigger", [
+    - Benutzer navigiert zu Tags-View
+    - Wählt einen Tag aus (mit Pfeiltasten)
+  ]),
+  uc-row("Hauptszenario", [
+    1. System selektiert Tag
+    2. System ruft `IsTagAnnotated(tagName)` auf
+    3. Falls Annotated Tag:
+      - 3a. System ruft `ShowAnnotationInfo(tagName)` auf
+      - 3b. System zeigt im Main-Panel:
+        - Tagger: Name <email>
+        - TaggerDate: Datum
+        - Tag-Message
+    4. Falls Lightweight Tag:
+      - 4a. System zeigt Commit-Details (da Tag nur Pointer ist)
+    5. System zeigt zugehörigen Commit in der Ansicht
+  ]),
+  uc-row("Alternativszenarien", "Keine relevanten Abweichungen"),
+  uc-row("Nachbedingungen", "Benutzer sieht Tag-Details und kann entscheiden (löschen, pushen, checkout)"),
+  uc-row("Häufigkeit", "Hoch (bei Code-Review, Release-Vorbereitung)"),
+))
+
+// ---------------------------------------------
+// UC4: Tag auf falschen Commit verschieben
+// ---------------------------------------------
+#uc-table("UC4: Bestehenden Tag verschieben (Force-Update)", (
+  uc-row("Akteur", "Software-Entwickler"),
+  uc-row("Kontext", "\"latest\"-Tag oder \"stable\"-Tag soll immer auf aktuellsten Stand zeigen"),
+  uc-row("Vorbedingungen", [
+    - Repository ist geöffnet
+    - Tag \"latest\" existiert auf älterem Commit
+    - Neuer Commit soll getaggt werden
+  ]),
+  uc-row("Trigger", "Benutzer will Tag aktualisieren"),
+  uc-row("Hauptszenario", [
+    1. Benutzer navigiert zu neuem Commit
+    2. Benutzer drückt `n` (new tag)
+    3. Benutzer gibt existierenden Tag-Namen ein (z. B. \"latest\")
+    4. System erkennt via `HasTag(\"latest\")`, dass Tag existiert
+    5. System zeigt Force-Prompt
+    6. Benutzer bestätigt
+    7. System erstellt Tag mit `--force` Flag
+    8. Tag wird auf neuen Commit verschoben
+  ]),
+  uc-row("Nachbedingungen", [
+    - Tag zeigt auf neuen Commit
+    - Alter Commit ist nicht mehr getaggt
+  ]),
+  uc-row("Geschäftsregel", [
+    - Force-Tags auf Remote können Probleme für andere Entwickler verursachen
+    - Wird oft in CI/CD für Rolling-Tags verwendet
+  ]),
+  uc-row("Häufigkeit", "Mittel (bei Rolling-Tags, Hotfix-Korrekturen)"),
+))
+
+#table(
+  columns: (45%, 55%),
+  inset: 6pt,
+  align: (left, left),
+  stroke: (x: 0.6pt, y: 0.6pt),
+
+  [*Use Case*], [*Führt zu Test*],
+
+  [UC1 - Lightweight Tag auf HEAD], [CreateLightweightObj - Scenario 1],
+  [UC1 - Annotated Tag mit Message], [CreateAnnotatedObj - Scenario 1],
+  [UC1 - Tag auf älteren Commit], [CreateLightweightObj - Scenario 2],
+  [UC4 - Tag verschieben (Force)], [CreateLightweightObj - Scenario 3 & 4],
+  [UC2 - Tag löschen], [LocalDelete - Test],
+  [UC3 - Tag-Typ erkennen], [IsTagAnnotated - Alle Scenarios],
+)
+

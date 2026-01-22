@@ -40,10 +40,10 @@ func TestTagCommands_CreateLightweightObj(t *testing.T) {
 		},
 		{
 			testName:        "create forced lightweight tag on specific commit",
-			tagName:         "release",
+			tagName:         "v1.0.0",
 			ref:             "def456",
 			force:           true,
-			expectedCmdArgs: []string{"git", "tag", "--force", "--", "release", "def456"},
+			expectedCmdArgs: []string{"git", "tag", "--force", "--", "v1.0.0", "def456"},
 		},
 	}
 
@@ -81,27 +81,27 @@ func TestTagCommands_CreateAnnotatedObj(t *testing.T) {
 		},
 		{
 			testName:        "create annotated tag on specific commit",
-			tagName:         "v2.0.0",
+			tagName:         "v1.0.0",
 			ref:             "abc123",
 			msg:             "Major release",
 			force:           false,
-			expectedCmdArgs: []string{"git", "tag", "v2.0.0", "abc123", "-m", "Major release"},
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "abc123", "-m", "Major release"},
 		},
 		{
 			testName:        "create forced annotated tag",
-			tagName:         "latest",
+			tagName:         "v1.0.0",
 			ref:             "",
 			msg:             "Latest stable",
 			force:           true,
-			expectedCmdArgs: []string{"git", "tag", "latest", "--force", "-m", "Latest stable"},
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "--force", "-m", "Latest stable"},
 		},
 		{
 			testName:        "create forced annotated tag on specific commit",
-			tagName:         "beta",
+			tagName:         "v1.0.0",
 			ref:             "xyz789",
 			msg:             "Beta version",
 			force:           true,
-			expectedCmdArgs: []string{"git", "tag", "beta", "--force", "xyz789", "-m", "Beta version"},
+			expectedCmdArgs: []string{"git", "tag", "v1.0.0", "--force", "xyz789", "-m", "Beta version"},
 		},
 	}
 
@@ -141,6 +141,11 @@ func TestTagCommands_IsTagAnnotated(t *testing.T) {
 		expectedError  error
 	}
 
+	// Boundary value analysis for Git output parsing:
+	// - "tag\n" (exact match for annotated tag)
+	// - "commit\n" (exact match for lightweight tag)
+	// - "  tag  \n" (whitespace edge case)
+
 	scenarios := []scenario{
 		{
 			testName:       "tag is annotated",
@@ -152,7 +157,7 @@ func TestTagCommands_IsTagAnnotated(t *testing.T) {
 		},
 		{
 			testName:       "tag is lightweight",
-			tagName:        "v2.0.0",
+			tagName:        "v1.0.0",
 			gitOutput:      "commit\n",
 			gitError:       nil,
 			expectedResult: false,
@@ -160,7 +165,7 @@ func TestTagCommands_IsTagAnnotated(t *testing.T) {
 		},
 		{
 			testName:       "tag with extra whitespace",
-			tagName:        "release",
+			tagName:        "v1.0.0",
 			gitOutput:      "  tag  \n",
 			gitError:       nil,
 			expectedResult: true,
