@@ -599,7 +599,7 @@
 				
 				<option value="file271">github.com/jesseduffield/lazygit/pkg/gui/presentation/icons/icons.go (55.6%)</option>
 				
-				<option value="file272">github.com/jesseduffield/lazygit/pkg/gui/presentation/item_operations.go (44.4%)</option>
+				<option value="file272">github.com/jesseduffield/lazygit/pkg/gui/presentation/item_operations.go (66.7%)</option>
 				
 				<option value="file273">github.com/jesseduffield/lazygit/pkg/gui/presentation/loader.go (100.0%)</option>
 				
@@ -617,7 +617,7 @@
 				
 				<option value="file280">github.com/jesseduffield/lazygit/pkg/gui/presentation/suggestions.go (100.0%)</option>
 				
-				<option value="file281">github.com/jesseduffield/lazygit/pkg/gui/presentation/tags.go (81.2%)</option>
+				<option value="file281">github.com/jesseduffield/lazygit/pkg/gui/presentation/tags.go (87.5%)</option>
 				
 				<option value="file282">github.com/jesseduffield/lazygit/pkg/gui/presentation/worktrees.go (100.0%)</option>
 				
@@ -707,7 +707,7 @@
 				
 				<option value="file325">github.com/jesseduffield/lazygit/pkg/integration/components/prompt_driver.go (96.9%)</option>
 				
-				<option value="file326">github.com/jesseduffield/lazygit/pkg/integration/components/runner.go (72.7%)</option>
+				<option value="file326">github.com/jesseduffield/lazygit/pkg/integration/components/runner.go (74.4%)</option>
 				
 				<option value="file327">github.com/jesseduffield/lazygit/pkg/integration/components/search_driver.go (66.7%)</option>
 				
@@ -51152,13 +51152,13 @@ func ItemOperationToString(itemOperation types.ItemOperation, tr *i18n.Translati
                 return tr.PushingStatus</span>
         case types.ItemOperationPulling:<span class="cov8" title="1">
                 return tr.PullingStatus</span>
-        case types.ItemOperationFastForwarding:<span class="cov0" title="0">
+        case types.ItemOperationFastForwarding:<span class="cov8" title="1">
                 return tr.FastForwarding</span>
         case types.ItemOperationDeleting:<span class="cov0" title="0">
                 return tr.DeletingStatus</span>
         case types.ItemOperationFetching:<span class="cov0" title="0">
                 return tr.FetchingStatus</span>
-        case types.ItemOperationCheckingOut:<span class="cov0" title="0">
+        case types.ItemOperationCheckingOut:<span class="cov8" title="1">
                 return tr.CheckingOutStatus</span>
         }
 
@@ -51539,7 +51539,7 @@ func getTagDisplayStrings(
         <span class="cov8" title="1">descriptionColor := style.FgYellow
         descriptionStr := descriptionColor.Sprint(t.Description())
         itemOperationStr := ItemOperationToString(itemOperation, tr)
-        if itemOperationStr != "" </span><span class="cov0" title="0">{
+        if itemOperationStr != "" </span><span class="cov8" title="1">{
                 descriptionStr = style.FgCyan.Sprint(itemOperationStr+" "+Loader(time.Now(), userConfig.Gui.Spinner)) + " " + descriptionStr
         }</span>
         <span class="cov8" title="1">res = append(res, textStyle.Sprint(t.Name), descriptionStr)
@@ -58627,11 +58627,11 @@ func RunTests(args RunTestArgs) error <span class="cov8" title="1">{
 
                         for i := range args.MaxAttempts </span><span class="cov8" title="1">{
                                 err := runTest(test, args, paths, projectRootDir, gitVersion)
-                                if err != nil </span><span class="cov0" title="0">{
+                                if err != nil </span><span class="cov8" title="1">{
                                         if i == args.MaxAttempts-1 </span><span class="cov0" title="0">{
                                                 return err
                                         }</span>
-                                        <span class="cov0" title="0">args.Logf("retrying test %s", test.Name())</span>
+                                        <span class="cov8" title="1">args.Logf("retrying test %s", test.Name())</span>
                                 } else<span class="cov8" title="1"> {
                                         break</span>
                                 }
