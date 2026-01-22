@@ -218,18 +218,18 @@ Die Tag-Verwaltung in lazygit erfüllt zentrale Anforderungen der Git-Versionsko
 #table(
   columns: (auto, 1fr),
   [FA-01], [Erstellung von Lightweight Tags (einfache Commit-Pointer)],
-  [FA-02], [ Erstellung von Annotated Tags mit Metadaten (Autor, Datum, Message)],
-  [FA-03], [ Tags auf beliebigen Commits erstellen (nicht nur HEAD)],
-  [FA-04], [ Überschreiben existierender Tags mit Force-Flag],
-  [FA-05], [ Lokales Löschen von Tags],
-  [FA-06], [ Unterscheidung zwischen Annotated und Lightweight Tags],
+  [FA-02], [Erstellung von Annotated Tags mit Metadaten (Autor, Datum, Message)],
+  [FA-03], [Tags auf beliebigen Commits erstellen (nicht nur HEAD)],
+  [FA-04], [Überschreiben existierender Tags mit Force-Flag],
+  [FA-05], [Lokales Löschen von Tags],
+  [FA-06], [Unterscheidung zwischen Annotated und Lightweight Tags],
 )
 //
 // *Nicht-funktionale Anforderungen:*
 // - NFR-TAG-01: Korrekte Git-Kommandos generieren (Repository-Integrität)
 // - NFR-TAG-02: Sichere Parameter-Übergabe (Input-Validierung)
 
-=== Use-Case-Analyse
+*Use-Case-Analyse*
 
 Aus der Anforderungsanalyse wurden vier zentrale Use Cases abgeleitet, die das Testdesign maßgeblich beeinflussen:
 
@@ -404,7 +404,11 @@ Die Coverage-Analyse zeigt signifikante Verbesserungen für `tag.go`, wo fünf v
 /lazygit/pkg/commands/git_commands/tag.go:71:	ShowAnnotationInfo	 0.0%
 /lazygit/pkg/commands/git_commands/tag.go:80:	IsTagAnnotated			 100.0%
 ```
-Die drei verbleibenden Funktionen (`HasTag`, `Push`, `ShowAnnotationInfo`) sind Remote-Operationen, die Netzwerk-Kommunikation erfordern und besser durch Integrationstests abgedeckt werden. Die Gesamt-Coverage von `tag.go` stieg von 0% auf 62.5%.
+Die Funktion `NewTagCommands` wurde in allen Tests implizit mitgetestet, da sie in allen Testfällen Verwendung findet.
+Die drei verbleibenden Funktionen (`HasTag`, `Push`, `ShowAnnotationInfo`) wurden in dieser Arbeit nicht getestet.
+Bei `Push` handelt es sich um eine Remote-Operation die Netzwerk-Kommunikation erfordert. `HasTag` und `ShowAnnotationInfo` sind unterkomplex und wurden nicht priorisiert.
+
+Die Gesamt-Coverage von `tag.go` stieg von 0% auf 62.5%.
 
 == Analyse und Testfalldesign - string_stack.go
 Für `StringStack` wurde ein zustandsbasierter Testansatz gewählt. Die Tests validieren LIFO-Semantik (`TestStringStack_PushAndPop`), das Verhalten bei leerem Stack (`TestStringStack_PopEmptyStack`), Zustandsprüfung (`TestStringStack_IsEmpty`), vollständiges Zurücksetzen (`TestStringStack_Clear`) und komplexe Operationssequenzen (`TestStringStack_MultipleOperations`).
@@ -438,7 +442,7 @@ Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` von 37.1% auf 37.
 
 = Testauswertung und Metriken
 
-Die Coverage-Verbesserungen sind messbar und signifikant. Für `tag.go` stieg die Coverage von 0% auf 62.5%, wobei alle getesteten Funktionen 100% Coverage erreichten. Nur drei Remote-Funktionen blieben ungetestet. `string_stack.go` erreichte vollständige 100% Coverage für alle Funktionen.
+Die Coverage-Verbesserungen sind messbar und signifikant. Für `tag.go` stieg die Coverage von 0% auf 62.5%, wobei alle getesteten Funktionen 100% Coverage erreichten. Nur drei Funktionen blieben ungetestet. `string_stack.go` erreichte vollständige 100% Coverage für alle Funktionen.
 
 Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` um 0.5 Prozentpunkte (37.1% → 37.6%) und `pkg/utils` um 1.4 Prozentpunkte (58.2% → 59.6%). Diese scheinbar kleinen Zahlen sind bedeutsam, da beide Packages umfangreich sind und die neuen Tests gezielt Lücken schließen.
 
