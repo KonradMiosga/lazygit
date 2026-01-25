@@ -54,7 +54,7 @@
   set heading(numbering: "1.")
   show ref: set text(fill: blue)
   show heading: set block(below: 1.5em, above: 1.5em)
-  set par(leading: 1.5em, spacing: 2em)
+  set par(leading: 1.1em, spacing: 2em)
   counter(page).update(1)
   set page(numbering: "1")
 

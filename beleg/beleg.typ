@@ -469,7 +469,7 @@ Diese Testfälle validieren alle Testbedingungen aus @test_bed und decken somit 
 
 == Implementierung
 
-Die Tag-Tests wurden in `tag_test.go` implementiert und folgen strikt den Projekt-Konventionen. Jeder Testfall definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten.
+Die Tests wurden in `tag_test.go` implementiert und folgen strikt den Projekt-Konventionen. Jeder Testfall definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten.
 Beispielhaft sei hier das implementierte Szenario für `TF-01` dargestellt.
 
 ```go
