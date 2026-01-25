@@ -62,7 +62,15 @@ Der Testprozess lässt sich grundsätzlich in zwei zentrale Bereiche gliedern: d
 
 Demgegenüber steht das dynamische Testen, bei dem die Software mit konkreten Eingabedaten ausgeführt wird. Dadurch lassen sich insbesondere solche Fehler aufdecken, die erst zur Laufzeit auftreten, etwa Speicherlecks, Race Conditions oder fehlerhaftes Laufzeitverhalten. Dynamische Tests ermöglichen somit eine Überprüfung des tatsächlichen Systemverhaltens unter realistischen oder gezielt konstruierten Bedingungen #cite(<LiggesmeyerSoftwareQualitaet2009>, supplement: [S. 39–43]). Der Schwerpunkt dieser Arbeit liegt auf dem dynamischen Testen und den zugehörigen Testverfahren.
 
-Dynamisches Testen lässt sich grundsätzlich in Black-Box-Tests und White-Box-Tests unterteilen. Black-Box-Tests leiten Testfälle ausschließlich aus Spezifikationen und Anforderungen ab, ohne Kenntnis der internen Programmstruktur. Typische Verfahren sind hierbei die Äquivalenzklassenbildung sowie darauf aufbauend die Grenzwertanalyse. White-Box-Tests hingegen konstruieren Testfälle auf Basis der internen Programmstruktur mit dem Ziel, definierte Abdeckungskriterien wie Anweisungs- oder Pfadabdeckung zu erfüllen #cite(<HoffmannSoftwareQualitaet2013>, supplement: [S. 173–174]). In der Testpraxis werden beide Ansätze häufig kombiniert, um sowohl funktionale als auch strukturelle Aspekte der Software zu überprüfen.
+Dynamisches Testen lässt sich in zwei grundlegende Herangehensweisen unterteilen: Black-Box- und White-Box-Tests.
+
+Beim Black-Box-Test werden Testfälle ausschließlich aus der externen Spezifikation eines Systems abgeleitet, ohne Kenntnisse seiner inneren Implementierung. Man behandelt die Software als „schwarze Box" und konzentriert sich darauf, ob die funktionalen und nicht-funktionalen Anforderungen erfüllt sind. Zu den klassischen Black-Box-Verfahren gehören die Äquivalenzklassenbildung und die Grenzwertanalyse. Bei der Äquivalenzklassenbildung werden Eingabedaten in Gruppen zusammengefasst, von denen man annimmt, dass sie vom System gleichartig verarbeitet werden. Statt alle Mitglieder einer Klasse zu testen, wählt man einen repräsentativen Vertreter aus. Die Grenzwertanalys ergänzt dieses Vorgehen, indem sie Testfälle gezielt an den Rändern dieser Äquivalenzklassen platziert, da dort erfahrungsgemäß häufig Fehler auftreten #cite(<SpillnerLinz2021>, supplement: [S. 147-155]).
+
+Der White-Box-Test (auch strukturbasierter Test) erfordert hingegen detaillierte Kenntnisse der internen Programmstruktur. Testfälle werden hierbei so entworfen, dass bestimmte Strukturelemente des Codes – wie Anweisungen, Verzweigungen oder Pfade – gezielt durchlaufen werden. Das Ziel ist es, eine definierte Code-Abdeckung (Coverage) zu erreichen und die korrekte Implementierung der internen Logik zu verifizieren #cite(<SpillnerLinz2021>, supplement: [S. 177-181]).
+
+In der modernen Testpraxis werden beide Ansätze selten isoliert betrachtet. Vielmehr werden sie in einem systematischen Testentwurfsprozess kombiniert, um sowohl die funktionale Korrektheit (Black-Box-Sicht) als auch die strukturelle Robustheit (White-Box-Sicht) sicherzustellen. Ein solcher Prozess, wie er auch im praktischen Teil dieser Arbeit zur Anwendung kommt, beginnt oft mit einer Black-Box-Sicht, bei der aus funktionalen Anforderungen grobe Testideen oder Use Cases abgeleitet werden. Daraufhin folgt die White-Box-Analyse der konkreten Implementierung, um entscheidungsrelevante Codepfade zu identifizieren. Basierend auf dieser Code-Logik können dann White-Box-orientierte Äquivalenzklassen gebildet werden; so hat ein Parameter, der eine `if`-Bedingung steuert, beispielsweise die beiden Äquivalenzklassen `true` und `false`, die für eine vollständige Zweigabdeckung getestet werden müssen. Um schließlich die Interaktion verschiedener Parameter effizient zu überprüfen, kommen *kombinatorische Testverfahren* wie das Pairwise-Testing (Paarweises Testen) zum Einsatz. Anstatt alle denkbaren Parameterkombinationen zu testen, was zu einer Testfallexplosion führen würde, wählt dieser Ansatz Testfälle so aus, dass jede mögliche Kombination von *zwei* Parametern mindestens einmal abgedeckt ist. Dies stellt einen pragmatischen Kompromiss zwischen Aufwand und Fehlerfindungsrate dar, da die meisten Softwarefehler durch die Interaktion von wenigen Parametern entstehen #cite(<NIST-SP800-142>).
+
+Durch diese Kombination wird sichergestellt, dass die Tests nicht nur relevante Anwenderszenarien abdecken, sondern auch alle logischen Verzweigungen im Code systematisch validieren.
 
 Innerhalb der White-Box-Tests lassen sich verschiedene, aufeinander aufbauende Testverfahren unterscheiden. Unit-Tests überprüfen die kleinsten testbaren Einheiten eines Programms in Isolation. Abhängige Komponenten werden dabei typischerweise durch Mocks oder Stubs ersetzt, was schnelle, reproduzierbare und deterministische Tests ermöglicht #cite(<LiggesmeyerSoftwareQualitaet2009>, supplement: [S. 371–372]). Eine häufig eingesetzte Ausprägung sind sogenannte Table-Driven Tests, bei denen mehrere Testfälle in Form von Datentabellen definiert und von einem generischen Testcode iterativ ausgeführt werden #cite(<GoTableDrivenTests>). Dieses Vorgehen reduziert Redundanz und verbessert die Wartbarkeit der Tests.
 
@@ -171,7 +179,7 @@ Es gibt über 450 solcher Integrationstests, die alle möglichen Szenarien abdec
 
 Technisch basiert das Framework auf einer Architektur spezialisierter Driver-Komponenten. Der `ViewDriver` ermöglicht Interaktionen mit Listen-Views wie Branches, Commits und Files, während der `MenuDriver` die Navigation in Popup-Menüs steuert. Der `PromptDriver` behandelt Texteingaben, der `ConfirmationDriver` das Bestätigen oder Ablehnen von Dialogen und der `AlertDriver` die Validierung von Fehlermeldungen. Diese Abstraktion entkoppelt die Testlogik von der konkreten UI-Implementation, was Refactorings erheblich erleichtert. Ändert sich die Struktur der Benutzeroberfläche, müssen lediglich die Driver-Implementierungen angepasst werden, während die hunderten von Tests unverändert bleiben können.
 
-#pagebreak()
+// #pagebreak()
 = Continuous Integration Pipeline
 
 Die CI-Pipeline ist kein Bestandteil der Teststrategie selbst, sondern dient als technisches Mittel zur automatisierten Umsetzung der beschriebenen Testkonzepte. Lazygit nutzt GitHub Actions, um bei jedem Push und Pull Request automatisch die Qualitätssicherung durchzuführen.
@@ -285,7 +293,6 @@ Der Parameter `tagName` durchläuft keine Verzweigungslogik und wird unveränder
 
 ==== Äquivalenzklassenbildung
 
-Äquivalenzklassen werden streng nach Code-Logik gebildet, nicht nach Domänenwissen:
 
 *Parameter tagName:*
 - **1 Äquivalenzklasse:** Beliebiger String
@@ -410,35 +417,35 @@ Bei `Push` handelt es sich um eine Remote-Operation die Netzwerk-Kommunikation e
 
 Die Gesamt-Coverage von `tag.go` stieg von 0% auf 62.5%.
 
-== Analyse und Testfalldesign - string_stack.go
-Für `StringStack` wurde ein zustandsbasierter Testansatz gewählt. Die Tests validieren LIFO-Semantik (`TestStringStack_PushAndPop`), das Verhalten bei leerem Stack (`TestStringStack_PopEmptyStack`), Zustandsprüfung (`TestStringStack_IsEmpty`), vollständiges Zurücksetzen (`TestStringStack_Clear`) und komplexe Operationssequenzen (`TestStringStack_MultipleOperations`).
-
-
-== Implementierung - string_stack.go
-Die StringStack-Tests verwenden klassisches Unit-Testing ohne Table-Driven-Ansatz, da primär Zustandsübergänge getestet werden:
-
-```go
-func TestStringStack_PushAndPop(t *testing.T) {
-    stack := NewStringStack()
-    stack.Push("first")
-    stack.Push("second")
-
-    assert.Equal(t, "second", stack.Pop())
-    assert.Equal(t, "first", stack.Pop())
-}
-```
-
-== Testergebnisse und Coverage-Verbesserung - string_stack.go
-
-
-
-```bash
-/lazygit/pkg/utils/string_stack.go:7:					Push								 100.0%
-/lazygit/pkg/utils/string_stack.go:11:				Pop								   100.0%
-/lazygit/pkg/utils/string_stack.go:21:				IsEmpty							 100.0%
-/lazygit/pkg/utils/string_stack.go:25:				Clear								 100.0%
-```
-Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` von 37.1% auf 37.6% (+0.5 Prozentpunkte) und `pkg/utils` von 58.2% auf 59.6% (+1.4 Prozentpunkte). Obwohl die prozentualen Verbesserungen moderat erscheinen, schließen sie konkrete Lücken in wichtigen Funktionen innerhalb umfangreicher Packages.
+// == Analyse und Testfalldesign - string_stack.go
+// Für `StringStack` wurde ein zustandsbasierter Testansatz gewählt. Die Tests validieren LIFO-Semantik (`TestStringStack_PushAndPop`), das Verhalten bei leerem Stack (`TestStringStack_PopEmptyStack`), Zustandsprüfung (`TestStringStack_IsEmpty`), vollständiges Zurücksetzen (`TestStringStack_Clear`) und komplexe Operationssequenzen (`TestStringStack_MultipleOperations`).
+//
+//
+// == Implementierung - string_stack.go
+// Die StringStack-Tests verwenden klassisches Unit-Testing ohne Table-Driven-Ansatz, da primär Zustandsübergänge getestet werden:
+//
+// ```go
+// func TestStringStack_PushAndPop(t *testing.T) {
+//     stack := NewStringStack()
+//     stack.Push("first")
+//     stack.Push("second")
+//
+//     assert.Equal(t, "second", stack.Pop())
+//     assert.Equal(t, "first", stack.Pop())
+// }
+// ```
+//
+// == Testergebnisse und Coverage-Verbesserung - string_stack.go
+//
+//
+//
+// ```bash
+// /lazygit/pkg/utils/string_stack.go:7:					Push								 100.0%
+// /lazygit/pkg/utils/string_stack.go:11:				Pop								   100.0%
+// /lazygit/pkg/utils/string_stack.go:21:				IsEmpty							 100.0%
+// /lazygit/pkg/utils/string_stack.go:25:				Clear								 100.0%
+// ```
+// Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` von 37.1% auf 37.6% (+0.5 Prozentpunkte) und `pkg/utils` von 58.2% auf 59.6% (+1.4 Prozentpunkte). Obwohl die prozentualen Verbesserungen moderat erscheinen, schließen sie konkrete Lücken in wichtigen Funktionen innerhalb umfangreicher Packages.
 
 = Testauswertung und Metriken
 
