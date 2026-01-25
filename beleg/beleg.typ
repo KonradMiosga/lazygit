@@ -35,19 +35,17 @@
   email: "konrad.miosga@stud.hszg.de",
 )
 
+#show table: set par(leading: 0.5em)
+
 = Einleitung
 
-== Projektkontext
+Moderne Softwareprojekte zeichnen sich durch hohe Komplexität, kurze Entwicklungszyklen und kontinuierliche Erweiterung aus. Insbesondere Open-Source-Projekte werden häufig von verteilten Entwicklergruppen weiterentwickelt und unterliegen einer stetigen Veränderung des Funktionsumfangs. Unter diesen Bedingungen ist eine verlässliche und wartbare Testinfrastruktur entscheidend, um bestehende Funktionalität abzusichern und Regressionen frühzeitig zu erkennen.
 
-In dieser Belegarbeit wird das Testkonzept des Open-Source-Projekts *lazygit* analysiert, bewertet und durch eigene Testfälle ergänzt. Lazygit ist eine in Go entwickelte Terminal-UI für Git-Kommandos, die komplexe Git-Operationen durch eine intuitive, tastaturgesteuerte Benutzeroberfläche vereinfacht. Das Projekt wurde von Jesse Duffield initiiert, wird seit 2018 aktiv entwickelt und gehört mit über 50.000 GitHub-Stars zu den populärsten Git-Tools im Terminal-Bereich.
+Das Open-Source-Projekt lazygit ist eine in Go entwickelte Terminal-basierte Benutzeroberfläche für Git, die komplexe Versionskontrolloperationen über eine tastaturgesteuerte Oberfläche zugänglich macht. Aufgrund seiner weiten Verbreitung und aktiven Entwicklung eignet sich lazygit als praxisnahes Fallbeispiel für die Untersuchung von Teststrategien in realen Softwareprojekten.
 
-Die Architektur folgt dem MVC-Muster mit klarer Trennung zwischen UI-Komponenten, Business-Logik und Git-Operationen. Diese Struktur erleichtert das isolierte Testen einzelner Komponenten erheblich.
+Ziel dieser Belegarbeit ist es, das bestehende Testkonzept von lazygit zu analysieren, dessen Stärken und Schwächen herauszuarbeiten und durch die Implementierung zusätzlicher Testfälle gezielt zu erweitern. Der Schwerpunkt liegt dabei auf der funktionalen Absicherung zentraler Git-Operationen sowie auf der strukturellen Abdeckung relevanter Codepfade.
 
-== Zielsetzung und Methodik
-
-Diese Arbeit verfolgt mehrere Ziele: Analyse der bestehenden Teststrategie mit ihren Stärken und Schwächen, Identifikation von Testlücken durch Coverage-Analysen und Code-Reviews, praktische Implementierung neuer Testfälle sowie Ableitung konkreter Handlungsempfehlungen.
-
-Die Bearbeitung erfolgte systematisch: Nach Literaturrecherche zu Testing-Grundlagen wurde die bestehende Testinfrastruktur analysiert. Coverage-Reports und manuelle Code-Reviews identifizierten Testlücken, die anschließend durch table-driven Tests geschlossen wurden. Die neuen Tests wurden in die CI-Pipeline integriert und auf mehreren Plattformen validiert.
+Die Arbeit ist wie folgt aufgebaut: Zunächst werden die notwendigen theoretischen Grundlagen des Softwaretestens erläutert. Anschließend wird die Architektur und vorhandene Testinfrastruktur von lazygit betrachtet. Darauf aufbauend werden Anforderungen, Use Cases und Testbedingungen für ausgewählte Funktionalitäten abgeleitet und mithilfe geeigneter Testentwurfstechniken in konkrete Testfälle überführt. Den Abschluss bilden eine Zusammenfassung der Ergebnisse sowie ein Ausblick auf mögliche Weiterentwicklungen.
 
 #pagebreak()
 = Theoretische Grundlagen <TheoGrund>
@@ -64,11 +62,11 @@ Demgegenüber steht das dynamische Testen, bei dem die Software mit konkreten Ei
 
 Dynamisches Testen lässt sich in zwei grundlegende Herangehensweisen unterteilen: Black-Box- und White-Box-Tests.
 
-Beim Black-Box-Test werden Testfälle ausschließlich aus der externen Spezifikation eines Systems abgeleitet, ohne Kenntnisse seiner inneren Implementierung. Man behandelt die Software als „schwarze Box" und konzentriert sich darauf, ob die funktionalen und nicht-funktionalen Anforderungen erfüllt sind. Zu den klassischen Black-Box-Verfahren gehören die Äquivalenzklassenbildung und die Grenzwertanalyse. Bei der Äquivalenzklassenbildung werden Eingabedaten in Gruppen zusammengefasst, von denen man annimmt, dass sie vom System gleichartig verarbeitet werden. Statt alle Mitglieder einer Klasse zu testen, wählt man einen repräsentativen Vertreter aus. Die Grenzwertanalys ergänzt dieses Vorgehen, indem sie Testfälle gezielt an den Rändern dieser Äquivalenzklassen platziert, da dort erfahrungsgemäß häufig Fehler auftreten #cite(<SpillnerLinz2021>, supplement: [S. 147-155]).
+Beim Black-Box-Test werden Testfälle ausschließlich aus der externen Spezifikation eines Systems abgeleitet, ohne Kenntnisse seiner inneren Implementierung. Man behandelt die Software als „schwarze Box" und konzentriert sich darauf, ob die funktionalen und nicht-funktionalen Anforderungen erfüllt sind. Zu den klassischen Black-Box-Verfahren gehören die Äquivalenzklassenbildung und die Grenzwertanalyse. Bei der Äquivalenzklassenbildung werden Eingabedaten in Gruppen zusammengefasst, von denen man annimmt, dass sie vom System gleichartig verarbeitet werden. Statt alle Mitglieder einer Klasse zu testen, wählt man einen repräsentativen Vertreter aus. Die Grenzwertanalys ergänzt dieses Vorgehen, indem sie Testfälle gezielt an den Rändern dieser Äquivalenzklassen platziert, da dort erfahrungsgemäß häufig Fehler auftreten #cite(<SpillnerLinz2003>, supplement: [S. 115]).
 
-Der White-Box-Test (auch strukturbasierter Test) erfordert hingegen detaillierte Kenntnisse der internen Programmstruktur. Testfälle werden hierbei so entworfen, dass bestimmte Strukturelemente des Codes – wie Anweisungen, Verzweigungen oder Pfade – gezielt durchlaufen werden. Das Ziel ist es, eine definierte Code-Abdeckung (Coverage) zu erreichen und die korrekte Implementierung der internen Logik zu verifizieren #cite(<SpillnerLinz2021>, supplement: [S. 177-181]).
+Der White-Box-Test erfordert hingegen detaillierte Kenntnisse der internen Programmstruktur. Testfälle werden hierbei so entworfen, dass bestimmte Strukturelemente des Codes, wie Anweisungen, Verzweigungen oder Pfade, gezielt durchlaufen werden. Das Ziel ist es, eine definierte Code-Abdeckung (Coverage) zu erreichen und die korrekte Implementierung der internen Logik zu verifizieren #cite(<SpillnerLinz2003>, supplement: [S. 128-129]).
 
-In der modernen Testpraxis werden beide Ansätze selten isoliert betrachtet. Vielmehr werden sie in einem systematischen Testentwurfsprozess kombiniert, um sowohl die funktionale Korrektheit (Black-Box-Sicht) als auch die strukturelle Robustheit (White-Box-Sicht) sicherzustellen. Ein solcher Prozess, wie er auch im praktischen Teil dieser Arbeit zur Anwendung kommt, beginnt oft mit einer Black-Box-Sicht, bei der aus funktionalen Anforderungen grobe Testideen oder Use Cases abgeleitet werden. Daraufhin folgt die White-Box-Analyse der konkreten Implementierung, um entscheidungsrelevante Codepfade zu identifizieren. Basierend auf dieser Code-Logik können dann White-Box-orientierte Äquivalenzklassen gebildet werden; so hat ein Parameter, der eine `if`-Bedingung steuert, beispielsweise die beiden Äquivalenzklassen `true` und `false`, die für eine vollständige Zweigabdeckung getestet werden müssen. Um schließlich die Interaktion verschiedener Parameter effizient zu überprüfen, kommen *kombinatorische Testverfahren* wie das Pairwise-Testing (Paarweises Testen) zum Einsatz. Anstatt alle denkbaren Parameterkombinationen zu testen, was zu einer Testfallexplosion führen würde, wählt dieser Ansatz Testfälle so aus, dass jede mögliche Kombination von *zwei* Parametern mindestens einmal abgedeckt ist. Dies stellt einen pragmatischen Kompromiss zwischen Aufwand und Fehlerfindungsrate dar, da die meisten Softwarefehler durch die Interaktion von wenigen Parametern entstehen #cite(<NIST-SP800-142>).
+In der Testpraxis werden beide Ansätze selten isoliert betrachtet. Vielmehr werden sie in einem systematischen Testentwurfsprozess kombiniert, um sowohl die funktionale Korrektheit (Black-Box-Sicht) als auch die strukturelle Robustheit (White-Box-Sicht) sicherzustellen. Ein solcher Prozess, wie er auch im praktischen Teil dieser Arbeit zur Anwendung kommt, beginnt oft mit einer Black-Box-Sicht, bei der aus funktionalen Anforderungen grobe Testideen oder Use Cases abgeleitet werden. Daraufhin folgt die White-Box-Analyse der konkreten Implementierung, um entscheidungsrelevante Codepfade zu identifizieren. Basierend auf dieser Code-Logik können dann White-Box-orientierte Äquivalenzklassen gebildet werden; so hat ein Parameter, der eine `if`-Bedingung steuert, beispielsweise die beiden Äquivalenzklassen `true` und `false`, die für eine vollständige Zweigabdeckung getestet werden müssen. Um schließlich die Interaktion verschiedener Parameter effizient zu überprüfen, kommen kombinatorische Testverfahren wie das paarweise Testen zum Einsatz #cite(<HoffmannSoftwareQualitaet2013>, supplement: [S. 192]). Anstatt alle denkbaren Parameterkombinationen zu testen, was zu einer Testfallexplosion führen würde, wählt dieser Ansatz Testfälle so aus, dass jede mögliche Kombination von zwei Parametern mindestens einmal abgedeckt ist. Dies stellt einen pragmatischen Kompromiss zwischen Aufwand und Fehlerfindungsrate dar, da die meisten Softwarefehler durch die Interaktion von wenigen Parametern entstehen #cite(<NIST-SP800-142>).
 
 Durch diese Kombination wird sichergestellt, dass die Tests nicht nur relevante Anwenderszenarien abdecken, sondern auch alle logischen Verzweigungen im Code systematisch validieren.
 
@@ -83,9 +81,9 @@ Lazygit testet auf zwei Ebenen: Unit-Tests und Integrationstests. Die Unit-Tests
 
 == Unit-Tests
 
-Die Unit-Tests in Lazygit arbeiten mit Mocks, das heißt sie führen keine echten Git-Befehle aus, sondern simulieren diese. Das Kernstück ist der `FakeCmdObjRunner`, der vorgibt, Git-Befehle auszuführen, tatsächlich aber nur aufzeichnet, welche Befehle aufgerufen wurden, und vordefinierte Antworten zurückgibt. So kann man Tests schreiben, die schnell, zuverlässig und unabhängig vom tatsächlichen Git-Zustand sind.
+Die Unit-Tests in lazygit arbeiten mit Mocks, das heißt sie führen keine echten Git-Befehle aus, sondern simulieren diese. Das Kernstück ist der `FakeCmdObjRunner`, der vorgibt, Git-Befehle auszuführen, tatsächlich aber nur aufzeichnet, welche Befehle aufgerufen wurden, und vordefinierte Antworten zurückgibt. So kann man Tests schreiben, die schnell, zuverlässig und unabhängig vom tatsächlichen Git-Zustand sind.
 
-Ein typischer Unit-Test sieht ungefähr so aus:
+Ein typischer Unit-Test in lazygit sieht so aus:
 
 ```go
 func TestBranchNewBranch(t *testing.T) {
@@ -100,6 +98,7 @@ func TestBranchNewBranch(t *testing.T) {
 
 Man sagt dem Fake-Runner vorher, welchen Git-Befehl man erwartet, führt dann die zu testende Funktion aus, und prüft am Ende, ob wirklich der erwartete Befehl aufgerufen wurde. Das ist einfach und funktioniert gut für Komponenten, die hauptsächlich Git-Befehle zusammenbauen und ausführen.
 
+#pagebreak()
 == Table-Driven Tests
 
 Table-Driven Tests sind in Go sehr verbreitet. Die Idee ist, dass man mehrere Testfälle in einer Liste definiert und dann in einer Schleife durchläuft. Das spart Code-Duplikation und macht es einfach, neue Testfälle hinzuzufügen. In Lazygit wird das konsequent eingesetzt, besonders wenn man verschiedene Eingaben und Fehlerfälle durchprobieren will.
@@ -136,6 +135,7 @@ for _, s := range scenarios {
 
 Jedes Szenario hat einen Namen, eine Mock-Konfiguration und erwartete Ergebnisse. Die Schleife führt dann für jeden Fall den gleichen Test aus. Wenn ein Test fehlschlägt, sieht man sofort am Namen, welches Szenario das Problem hat.
 
+#pagebreak()
 == Integrationstests
 
 Die Integrationstests sind das Herzstück der Teststrategie. Sie testen nicht einzelne Funktionen, sondern komplette User-Workflows. Dafür wurde ein eigenes Test-Framework entwickelt, mit der man UI-Interaktionen beschreiben kann.
@@ -175,20 +175,19 @@ var Rebase = NewIntegrationTest(NewIntegrationTestArgs{
 
 Der Test läuft in drei Schritten ab: Zuerst wird ein echtes Git-Repository mit dem `Shell`-Helper vorbereitet. Dann simuliert der `TestDriver` Benutzeraktionen wie `Focus()`, `SelectNextItem()` oder `Press()` – das entspricht den Tastendrücken, die ein echter Nutzer machen würde. Zwischendurch wird immer wieder geprüft, ob die UI das Erwartete anzeigt, zum Beispiel mit `Contains()` oder `Equals()`. Man kann den Test lesen wie eine Beschreibung dessen, was ein Nutzer tut.
 
-Es gibt über 450 solcher Integrationstests, die alle möglichen Szenarien abdecken: Branch-Operationen wie Checkout oder Rebase, Commit-Operationen wie Amend oder Cherry-Pick , interaktive Rebases, Konfliktbehandlung, File-Operations und mehr.
+// Es gibt über 450 solcher Integrationstests, die alle möglichen Szenarien abdecken: Branch-Operationen wie Checkout oder Rebase, Commit-Operationen wie Amend oder Cherry-Pick , interaktive Rebases, Konfliktbehandlung, File-Operations und mehr.
 
 Technisch basiert das Framework auf einer Architektur spezialisierter Driver-Komponenten. Der `ViewDriver` ermöglicht Interaktionen mit Listen-Views wie Branches, Commits und Files, während der `MenuDriver` die Navigation in Popup-Menüs steuert. Der `PromptDriver` behandelt Texteingaben, der `ConfirmationDriver` das Bestätigen oder Ablehnen von Dialogen und der `AlertDriver` die Validierung von Fehlermeldungen. Diese Abstraktion entkoppelt die Testlogik von der konkreten UI-Implementation, was Refactorings erheblich erleichtert. Ändert sich die Struktur der Benutzeroberfläche, müssen lediglich die Driver-Implementierungen angepasst werden, während die hunderten von Tests unverändert bleiben können.
 
 // #pagebreak()
-= Continuous Integration Pipeline
-
-Die CI-Pipeline ist kein Bestandteil der Teststrategie selbst, sondern dient als technisches Mittel zur automatisierten Umsetzung der beschriebenen Testkonzepte. Lazygit nutzt GitHub Actions, um bei jedem Push und Pull Request automatisch die Qualitätssicherung durchzuführen.
-
-Die Pipeline führt parallel mehrere Prüfungen aus: Unit-Tests laufen auf Ubuntu und Windows (Cross-Platform-Kompatibilität), Integrationstests validieren die Funktionalität gegen vier verschiedene Git-Versionen (2.32.0 bis neueste), Build-Jobs kompilieren für Linux, Windows und macOS, Konsistenz-Checks prüfen Dependencies und generierte Dateien, und golangci-lint führt statische Code-Analyse durch. Nach erfolgreicher Testausführung werden Coverage-Daten zu Codacy hochgeladen.
-
+// = Continuous Integration Pipeline
+//
+// Die CI-Pipeline ist kein Bestandteil der Teststrategie selbst, sondern dient als technisches Mittel zur automatisierten Umsetzung der beschriebenen Testkonzepte. Lazygit nutzt GitHub Actions, um bei jedem Push und Pull Request automatisch die Qualitätssicherung durchzuführen.
+//
+// Die Pipeline führt parallel mehrere Prüfungen aus: Unit-Tests laufen auf Ubuntu und Windows (Cross-Platform-Kompatibilität), Integrationstests validieren die Funktionalität gegen vier verschiedene Git-Versionen (2.32.0 bis neueste), Build-Jobs kompilieren für Linux, Windows und macOS, Konsistenz-Checks prüfen Dependencies und generierte Dateien, und golangci-lint führt statische Code-Analyse durch. Nach erfolgreicher Testausführung werden Coverage-Daten zu Codacy hochgeladen.
+//
 // Die Coverage-Werte variieren je nach Komponente: Command-Builder erreichen 75-85%, Loader 70-80%, Controller 60-70%, während Presentation-Layer und UI-Rendering mit 40-55% bzw. 25-40% deutlich niedriger liegen – was für Terminal-Anwendungen typisch ist. Die Testsuite umfasst über 80 Unit-Test-Dateien mit etwa 2500 Testfunktionen und mehr als 450 Integrationstests. Dank Parallelisierung beträgt die Laufzeit 15-20 Minuten statt über einer Stunde.
 
-#pagebreak()
 = Entwurf eigener Testfälle
 
 Der praktische Teil dieser Arbeit bestand darin, Testlücken im Lazygit-Projekt zu identifizieren und durch eigene Testfälle zu schließen. Dabei wurden die zuvor analysierten Teststrategien angewendet und die Coverage messbar verbessert.
@@ -206,155 +205,269 @@ Die Analyse der Coverage-Reports in Kombination mit manuellen Code-Reviews ident
 /lazygit/pkg/commands/git_commands/tag.go:71:	ShowAnnotationInfo	 0.0%
 /lazygit/pkg/commands/git_commands/tag.go:80:	IsTagAnnotated			 0.0%
 ```
-Die zweite Lücke betraf die `StringStack`-Datenstruktur in `pkg/utils/string_stack.go`, eine LIFO-Implementierung ohne Tests.
-```bash
-/lazygit/pkg/utils/string_stack.go:7:					Push								 0.0%
-/lazygit/pkg/utils/string_stack.go:11:				Pop								   0.0%
-/lazygit/pkg/utils/string_stack.go:21:				IsEmpty							 0.0%
-/lazygit/pkg/utils/string_stack.go:25:				Clear								 0.0%
-```
-
-Die Priorisierung erfolgte nach Kritikalität, wobei die Tag-Funktionen als wichtiger eingestuft wurden.
-#pagebreak()
-== Analyse und Testfalldesign - tag.go
-
-=== Anforderungsanalyse
-
-Die Tag-Verwaltung in lazygit erfüllt zentrale Anforderungen der Git-Versionskontrolle:
-
-*Funktionale Anforderungen:*
-#table(
-  columns: (auto, 1fr),
-  [FA-01], [Erstellung von Lightweight Tags (einfache Commit-Pointer)],
-  [FA-02], [Erstellung von Annotated Tags mit Metadaten (Autor, Datum, Message)],
-  [FA-03], [Tags auf beliebigen Commits erstellen (nicht nur HEAD)],
-  [FA-04], [Überschreiben existierender Tags mit Force-Flag],
-  [FA-05], [Lokales Löschen von Tags],
-  [FA-06], [Unterscheidung zwischen Annotated und Lightweight Tags],
-)
+// Die zweite Lücke betraf die `StringStack`-Datenstruktur in `pkg/utils/string_stack.go`, eine LIFO-Implementierung ohne Tests.
+// ```bash
+// /lazygit/pkg/utils/string_stack.go:7:					Push								 0.0%
+// /lazygit/pkg/utils/string_stack.go:11:				Pop								   0.0%
+// /lazygit/pkg/utils/string_stack.go:21:				IsEmpty							 0.0%
+// /lazygit/pkg/utils/string_stack.go:25:				Clear								 0.0%
+// ```
 //
-// *Nicht-funktionale Anforderungen:*
-// - NFR-TAG-01: Korrekte Git-Kommandos generieren (Repository-Integrität)
-// - NFR-TAG-02: Sichere Parameter-Übergabe (Input-Validierung)
+// Die Priorisierung erfolgte nach Kritikalität, wobei die Tag-Funktionen als wichtiger eingestuft wurden.
+// #pagebreak()
+== Analyse
+*Anforderungsanalyse*
+
+Die Tag-Verwaltung in lazygit bildet zentrale Funktionalitäten der Git-Versionskontrolle ab. Als fachliche Grundlage dienen die offizielle Referenzdokumentation des Git-Befehls `git tag` #cite(<git_tag_docs>) sowie das Pro Git-Handbuch #cite(<progit_tagging>). Aus diesen Quellen lassen sich die funktionalen Fähigkeiten ableiten, die eine Tag-Verwaltung mindestens unterstützen muss.
+
+#pagebreak()
+Auf dieser Basis ergeben sich die in @funk_anf zusammengefassten funktionalen Anforderungen:
+
+#figure(
+  table(
+    columns: (auto, 1fr),
+    [*ID*],[*Anforderung*],
+    [FA-01], [Erstellung von Lightweight Tags (einfache Commit-Pointer)],
+    [FA-02], [Erstellung von Annotated Tags mit Metadaten (Autor, Datum, Message)],
+    [FA-03], [Erstellung von Tags auf beliebigen Commits (nicht nur HEAD)],
+    [FA-04], [Überschreiben existierender Tags mittels Force-Option],
+    [FA-05], [Lokales Löschen von Tags],
+    [FA-06], [Unterscheidung zwischen Annotated und Lightweight Tags],
+  ),
+  caption: [Funktionale Anforderungen]
+)<funk_anf>
+
+Diese Anforderungen beschreiben was das System leisten muss, unabhängig davon, wie Benutzer diese Funktionen konkret auslösen.
 
 *Use-Case-Analyse*
 
-Aus der Anforderungsanalyse wurden vier zentrale Use Cases abgeleitet, die das Testdesign maßgeblich beeinflussen:
+Aus den identifizierten funktionalen Anforderungen wurden typische Nutzungsszenarien abgeleitet, die reale Arbeitsabläufe von Entwicklern abbilden. Diese Use Cases bündeln jeweils mehrere Anforderungen und bilden die Grundlage für das spätere Testdesign.
 
-#table(
-  columns: (auto, 1fr, auto),
-  [*UC*], [*Beschreibung*], [*Priorität*],
-  [UC-01], [Release-Version taggen: Entwickler markiert Commits mit einer Versionen], [Hoch],
-  [UC-02], [Fehlerhaften Tag lokal korrigieren: Vor Remote-Push Fehler beheben], [Mittel],
-  [UC-03], [Tag-Informationen anzeigen: Unterscheidung Lightweight/Annotated], [Hoch],
-  [UC-04], [Bestehenden Tag verschieben: Rolling-Tags (latest, stable) aktualisieren], [Mittel],
-)
+Die resultierenden Use Cases sind in @use_cases dargestellt.
 
-// *UC-01: Release-Version taggen* ist der primäre Workflow. Benutzer navigieren zu einem Commit, drücken `n` und geben einen Tag-Namen ein. Das System unterscheidet automatisch zwischen Lightweight (keine Beschreibung) und Annotated Tags (mit Message oder GPG-Signierung). Bei existierenden Tags erfolgt eine Force-Bestätigung. Dieser Use Case validiert FR-TAG-01 bis FR-TAG-04.
+#figure(
+  table(
+    columns: (auto, 1fr),
+    [*ID*], [*Beschreibung*],
+    [UC-01], [Release-Version taggen: Commit mit Versionskennzeichnung versehen],
+    [UC-02], [Fehlerhaften Tag lokal korrigieren],
+    [UC-03], [Tag-Informationen anzeigen und Typ unterscheiden], 
+    [UC-04], [Bestehenden Tag verschieben (Rolling Tags aktualisieren)], 
+  ),
+  caption: [Use Cases]
+)<use_cases>
+
+Der Use Case _UC-01: Release-Version taggen_ stellt den primären Workflow dar. Der Benutzer navigiert zu einem Commit, vergibt einen Tagnamen und entscheidet optional, ob ein Lightweight- oder ein Annotated Tag erstellt werden soll. Existiert der Tag bereits, ist eine explizite Bestätigung zum Überschreiben erforderlich. Dieser Use Case deckt insbesondere FA-01 bis FA-04 ab.
+
+Der Use Case _UC-02: Fehlerhaften Tag lokal korrigieren_ beschreibt das Szenario, in dem ein Entwickler einen bereits existierenden Tag lokal entfernt oder überschreibt, bevor dieser in ein Remote-Repository übertragen wird. Ziel ist es, inkonsistente oder fehlerhafte Tag-Zustände frühzeitig zu bereinigen. Dieser Use Case adressiert primär FA-04 (Überschreiben existierender Tags) und FA-05 (Löschen von Tags).
+
+Der Use Case _UC-03: Tag-Informationen anzeigen und Typ unterscheiden_ umfasst das Anzeigen vorhandener Tags sowie die Unterscheidung zwischen Lightweight- und Annotated Tags. Diese Funktion ist notwendig, um korrekt interpretieren zu können, ob zu einem Tag zusätzliche Metadaten wie Autor oder Nachricht existieren. UC-03 validiert insbesondere FA-06.
+
+Der Use Case _UC-04: Bestehenden Tag verschieben_ adressiert Szenarien wie das Korrigieren falsch gesetzter Tags oder das Aktualisieren von Rolling Tags (z. B. latest, stable). Hierbei wird die Force-Option verwendet, wodurch zusätzliche Sicherheitsprüfungen notwendig sind.
+
+*Testbedingungen*
+
+Aus den beschriebenen Use Cases wurden konkrete Testbedingungen abgeleitet. Diese beschreiben unter welchen Voraussetzungen ein Testfall ausgeführt wird und welches Verhalten erwartet wird. Jede Testbedingung lässt sich mindestens einem Use Case zuordnen.
+
+Die resultierenden Testbedingungen sind in @test_bed aufgeführt.
+
+#figure(
+  table(
+    columns: (auto, 1fr, 1fr, auto),
+    [*ID*], [*Bedingung*], [*Erwartetes Verhalten*], [*Use Case*],
+    [TB-01], [Lightweight Tag ohne Ref], [`git tag <name>` wird ausgeführt], [UC-01],
+    [TB-02], [Tag auf spezifischem Commit], [`git tag <name> <ref>`], [UC-01, UC-04],
+    [TB-03], [Force-Flag gesetzt], [`--force` ist enthalten], [UC-02, UC-04],
+    [TB-04], [Force + spezifischer Commit], [Kombination beider Parameter], [UC-04],
+    [TB-05], [Annotated Tag mit Message], [`-m <message>` Parameter], [UC-01],
+    [TB-06], [Tag-Typ erkennen], [`git cat-file -t` Ausgabe wird ausgewertet], [UC-03],
+    [TB-07], [Tag löschen], [`git tag -d <name>`], [UC-02],
+  ),
+  caption: [Testbedingungen]
+)<test_bed>
+
+
+Diese Testbedingungen bilden die direkte Grundlage für die spätere Definition konkreter Testfälle und stellen die Nachvollziehbarkeit von Anforderungen bis zu Tests sicher.
+// === Anforderungsanalyse
 //
-// *UC-04: Bestehenden Tag verschieben* adressiert zwei Szenarien: Fehlerkorrektur (Tag auf falschem Commit) und Rolling-Tags (kontinuierliche Aktualisierung von "latest"-Tags). Die `--force`-Option ermöglicht das Überschreiben, erfordert aber explizite Benutzerbestätigung zur Vermeidung versehentlicher Datenverluste.
+// Die Tag-Verwaltung in lazygit erfüllt zentrale Anforderungen der Git-Versionskontrolle.
+// Aus der Dokumentation #cite(<git_tag_docs>) und zugehöriger offizieller Literatur #cite(<progit_tagging>) lassen sich folgende funktionale Anforderungen, die erfüllt sein müssen, ableiten  :
+//
+// *Funktionale Anforderungen:*
+// #table(
+//   columns: (auto, 1fr),
+//   [FA-01], [Erstellung von Lightweight Tags (einfache Commit-Pointer)],
+//   [FA-02], [Erstellung von Annotated Tags mit Metadaten (Autor, Datum, Message)],
+//   [FA-03], [Tags auf beliebigen Commits erstellen (nicht nur HEAD)],
+//   [FA-04], [Überschreiben existierender Tags mit Force-Flag],
+//   [FA-05], [Lokales Löschen von Tags],
+//   [FA-06], [Unterscheidung zwischen Annotated und Lightweight Tags],
+// )
+// //
+// // *Nicht-funktionale Anforderungen:*
+// // - NFR-TAG-01: Korrekte Git-Kommandos generieren (Repository-Integrität)
+// // - NFR-TAG-02: Sichere Parameter-Übergabe (Input-Validierung)
+//
+// *Use-Case-Analyse*
+//
+// Aus der Anforderungsanalyse wurden vier zentrale Use Cases abgeleitet, die das Testdesign maßgeblich beeinflussen:
+//
+// #table(
+//   columns: (auto, 1fr, auto),
+//   [*UC*], [*Beschreibung*], [*Priorität*],
+//   [UC-01], [Release-Version taggen: Entwickler markiert Commits mit einer Versionen], [Hoch],
+//   [UC-02], [Fehlerhaften Tag lokal korrigieren: Vor Remote-Push Fehler beheben], [Mittel],
+//   [UC-03], [Tag-Informationen anzeigen: Unterscheidung Lightweight/Annotated], [Hoch],
+//   [UC-04], [Bestehenden Tag verschieben: Rolling-Tags (latest, stable) aktualisieren], [Mittel],
+// )
+//
+// // *UC-01: Release-Version taggen* ist der primäre Workflow. Benutzer navigieren zu einem Commit, drücken `n` und geben einen Tag-Namen ein. Das System unterscheidet automatisch zwischen Lightweight (keine Beschreibung) und Annotated Tags (mit Message oder GPG-Signierung). Bei existierenden Tags erfolgt eine Force-Bestätigung. Dieser Use Case validiert FR-TAG-01 bis FR-TAG-04.
+// //
+// // *UC-04: Bestehenden Tag verschieben* adressiert zwei Szenarien: Fehlerkorrektur (Tag auf falschem Commit) und Rolling-Tags (kontinuierliche Aktualisierung von "latest"-Tags). Die `--force`-Option ermöglicht das Überschreiben, erfordert aber explizite Benutzerbestätigung zur Vermeidung versehentlicher Datenverluste.
+//
+// === Testbedingungen
+//
+// Aus den Use Cases wurden sieben konkrete Testbedingungen abgeleitet:
+//
+// #table(
+//   columns: (auto, 1fr, 1fr),
+//   [*ID*], [*Bedingung*], [*Erwartetes Verhalten*],
+//   [TB-01], [Lightweight Tag ohne Ref], [`git tag -- <name>`],
+//   [TB-02], [Tag auf spezifischem Commit], [`git tag -- <name> <ref>`],
+//   [TB-03], [Force-Flag gesetzt], [`--force` Flag inkludiert],
+//   [TB-04], [Force + spezifischer Commit], [Kombination beider Flags],
+//   [TB-05], [Annotated Tag mit Message], [`-m <message>` Parameter],
+//   [TB-06], [Tag-Typ erkennen], [`git cat-file -t` Output parsen],
+//   [TB-07], [Tag löschen], [`git tag -d <name>` ausführen],
+// )
+//
 
-=== Testbedingungen
+#pagebreak()
+== Testfalldesign
 
-Aus den Use Cases wurden sieben konkrete Testbedingungen abgeleitet:
+Ziel des Testfalldesigns ist es, aus den definierten Testbedingungen konkrete, ausführbare Testfälle abzuleiten. Da die Tag-Funktionalität in lazygit Git-Befehle programmgesteuert über Hilfsfunktionen wie `NewGitCmd` und `ArgIf` zusammensetzt, ergibt sich die maßgebliche Testlogik direkt aus den im Code enthaltenen Verzweigungen.
 
-#table(
-  columns: (auto, 1fr, 1fr),
-  [*ID*], [*Bedingung*], [*Erwartetes Verhalten*],
-  [TB-01], [Lightweight Tag ohne Ref], [`git tag -- <name>`],
-  [TB-02], [Tag auf spezifischem Commit], [`git tag -- <name> <ref>`],
-  [TB-03], [Force-Flag gesetzt], [`--force` Flag inkludiert],
-  [TB-04], [Force + spezifischer Commit], [Kombination beider Flags],
-  [TB-05], [Annotated Tag mit Message], [`-m <message>` Parameter],
-  [TB-06], [Tag-Typ erkennen], [`git cat-file -t` Output parsen],
-  [TB-07], [Tag löschen], [`git tag -d <name>` ausführen],
-)
+Die Funktion `ArgIf(condition, arg)` fügt ein Argument ausschließlich dann zur Befehlsliste hinzu, wenn die übergebene Bedingung erfüllt ist. Jede solche Bedingung erzeugt alternative Code-Pfade und muss daher durch geeignete Testfälle abgedeckt werden.
 
-=== Testfalldesign
+*Code-Analyse für CreateLightweightObj*
 
-Die Tag-Funktionen konstruieren Git-Befehle programmatisch mit Hilfsfunktionen wie `NewGitCmd` und `ArgIf`. Die Funktion `ArgIf(condition, arg)` fügt Argumente nur hinzu wenn die Bedingung erfüllt ist. Diese bedingte Logik bestimmt die Code-Pfade und damit die notwendigen Testfälle.
-
-==== Code-Analyse für CreateLightweightObj
-
-Die Funktion `CreateLightweightObj(tagName string, ref string, force bool)` enthält folgende relevante Code-Verzweigungen:
-
+Die Funktion `CreateLightweightObj(tagName string, ref string, force bool)` enthält folgende entscheidungsrelevante Anweisungen:
 ```go
 NewGitCmd("tag").
-    ArgIf(force, "--force").        // Bedingung: force == true?
-    Arg("--", tagName).             // Keine Bedingung
-    ArgIf(len(ref) > 0, ref).       // Bedingung: ref nicht-leer?
+    ArgIf(force, "--force").
+    Arg("--", tagName).
+    ArgIf(len(ref) > 0, ref).
 ```
+Hieraus ergeben sich zwei logische Entscheidungen:
 
-Daraus ergeben sich zwei entscheidungsrelevante Bedingungen:
-- `force`: true oder false
-- `len(ref) > 0`: ref leer oder nicht-leer
+- Ob das Flag `--force` hinzugefügt wird (`force == true`)
+- Ob ein Referenz-Commit übergeben wird (`len(ref) > 0`)
 
-Der Parameter `tagName` durchläuft keine Verzweigungslogik und wird unverändert an Git übergeben.
+Der Parameter `tagName` durchläuft keine bedingte Logik und wird stets unverändert an Git weitergereicht.
 
-==== Äquivalenzklassenbildung
+*Äquivalenzklassenbildung*
 
+Auf Basis der identifizierten Verzweigungen werden die Parameter in Äquivalenzklassen eingeteilt.
+#figure(
+  table(
+    columns: (auto, auto, 1fr),
+    [*Parameter*], [*Äquivalenzklasse*], [*Bedeutung / Effekt*],
+    [`tagName`], [beliebiger String], [Wird unverändert an Git übergeben],
+    [`ref`], [leer (`""`)], [Kein Ref-Argument wird ergänzt],
+    [`ref`], [nicht-leer (z. B. `"abc123"`)], [Ref-Argument wird ergänzt],
+    [`force`], [`false`], [`--force` wird nicht ergänzt],
+    [`force`], [`true`], [`--force` wird ergänzt],
+  ),
+  caption: [Äquivalenzklassen]
 
-*Parameter tagName:*
-- **1 Äquivalenzklasse:** Beliebiger String
-- Begründung: `Arg("--", tagName)` führt keine Validierung oder Unterscheidung durch
-- Repräsentant: "v1.0.0" (konsistent in allen Tests verwendet)
-
-*Parameter ref:*
-- **Klasse 1:** Leer (`""`) → `len(ref) > 0` ist false → ref wird nicht hinzugefügt
-- **Klasse 2:** Nicht-leer (z.B. `"abc123"`) → `len(ref) > 0` ist true → ref wird hinzugefügt
-- Begründung: Verzweigung im Code unterscheidet explizit zwischen leer und nicht-leer
-
-*Parameter force:*
-- **Klasse 1:** false → `--force` Flag wird nicht hinzugefügt  
-- **Klasse 2:** true → `--force` Flag wird hinzugefügt
-- Begründung: Boolean-Parameter mit direkter Code-Verzweigung
-
-==== Kombinatorische Testabdeckung
-
-Aus den Äquivalenzklassen ergeben sich folgende Kombinationen:
-- tagName: 1 Klasse
-- ref: 2 Klassen (leer, nicht-leer)
-- force: 2 Klassen (false, true)
-
-**Gesamtkombinationen:** 1 × 2 × 2 = **4 Testfälle**
-
-Da nur 4 Kombinationen existieren, entspricht vollständige Kombinatorik der Pairwise-Coverage. Alle möglichen Interaktionen zwischen den Parametern werden abgedeckt:
-
-#table(
-  columns: (auto, auto, auto, auto),
-  [*Test*], [*ref*], [*force*], [*Erwartetes Kommando*],
-  [TF-01], [leer], [false], [`git tag -- v1.0.0`],
-  [TF-02], [nicht-leer], [false], [`git tag -- v1.0.0 abc123`],
-  [TF-03], [leer], [true], [`git tag --force -- v1.0.0`],
-  [TF-04], [nicht-leer], [true], [`git tag --force -- v1.0.0 def456`],
 )
 
-TF-04 ist der kritischste Test, da beide bedingte Argumente (`--force` und `ref`) gleichzeitig aktiv sind und die korrekte Argument-Reihenfolge validiert wird.
+Diese Klasseneinteilung bildet exakt die im Code vorhandenen Entscheidungspunkte ab.
 
-==== Weitere Entwurfstechniken
 
-*Grenzwertanalyse für IsTagAnnotated:*
+*Kombinatorische Testabdeckung*
+
+Aus den zuvor definierten Äquivalenzklassen ergeben sich für die Funktion
+`CreateLightweightObj` folgende Variationsräume:
+
+- 1 Klasse für `tagName`
+- 2 Klassen für `ref`
+- 2 Klassen für `force`
+
+Damit existieren insgesamt:
+
+1 × 2 × 2 = 4 mögliche Parameterkombinationen
+
+Da die Anzahl an Kombinationen überschaubar ist und es somit nicht zu einer Testfall-Explosion kommt, werden sämtliche Kombinationen explizit getestet.
+Auf diese Weise wird sichergestellt, dass jeder im Code vorhandene Verzweigungspfad
+mindestens einmal durchlaufen wird.
+
+#figure(
+  table(
+    columns: (auto, auto, auto, auto),
+    [*Test*], [*ref*], [*force*], [*Erwartetes Kommando*],
+    [TF-01], [leer], [false], [`git tag -- v1.0.0`],
+    [TF-02], [nicht-leer], [false], [`git tag -- v1.0.0 abc123`],
+    [TF-03], [leer], [true], [`git tag --force -- v1.0.0`],
+    [TF-04], [nicht-leer], [true], [`git tag --force -- v1.0.0 def456`],
+  ),
+  caption: [Testfälle für `CreateLightweightObj`]
+)<test_fall>
+
+TF-04 stellt den kritischsten Testfall dar, da hier beide optionalen Argumente gleichzeitig
+aktiv sind und zusätzlich die korrekte Reihenfolge der erzeugten Git-Argumente überprüft wird.
+
+Diese vier Testfälle decken die Testbedingungen TB-01 bis TB-04 vollständig ab.
+
+Die Testfälle TF-05 bis TF-08 werden analog zu den zuvor beschriebenen Fällen abgeleitet.
+Die Funktion `CreateAnnotatedObj` besitzt zusätzlich den Parameter `msg`, der sich wie
+`tagName` verhält und keine eigene Verzweigungslogik enthält. Der Parameter wird stets
+unverändert an Git weitergereicht.
+
+Daher ergeben sich auch für `CreateAnnotatedObj` lediglich vier relevante
+Parameterkombinationen, die durch TF-05 bis TF-08 abgedeckt werden.
+
+#pagebreak()
+*Grenzwertanalyse*
 
 Die Funktion `IsTagAnnotated` parst Git-Output und muss robuste String-Verarbeitung gewährleisten. Getestet werden:
 - Exakte Übereinstimmung: `"tag\n"` (Annotated) vs. `"commit\n"` (Lightweight)
 - Whitespace-Toleranz: `"  tag  \n"` (mit führenden/nachfolgenden Leerzeichen)
 - Edge Case: Leerer String (implizit durch `strings.TrimSpace` abgedeckt)
 
-*Table-Driven Testing:*
+*Table-Driven Testing*
 
 Das Implementierungspattern folgt dem Projekt-Standard. Jeder Test definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten, die in einer Schleife ausgeführt werden. Dies ermöglicht kompakte, wartbare Tests mit klarer Trennung von Testdaten und Testlogik.
 
-==== Testfallübersicht
+*Testfallübersicht*
+#figure(
+  table(
+    columns: (auto, 1fr, 1fr, 1fr),
+    [*Testfall*], [*Funktion*], [*Zweck*], [*Entwurfstechnik*],
 
-Die resultierende Test-Suite umfasst 12 Testfälle:
-- 4 für `CreateLightweightObj` (TF-01 bis TF-04) - vollständige Kombinatorik
-- 4 für `CreateAnnotatedObj` (TF-05 bis TF-08) - analog mit zusätzlichem `msg`-Parameter
-- 3 für `IsTagAnnotated` (TF-09 bis TF-11) - Grenzwertanalyse für Output-Parsing
-- 1 für `LocalDelete` (TF-12) - direkter Funktionsaufruf ohne Parametervariationen
+    [TF-01], [`CreateLightweightObj`], [Lightweight Tag auf HEAD], [Kombinatorik],
+    [TF-02], [`CreateLightweightObj`], [Lightweight Tag auf spezifischem Commit], [Kombinatorik],
+    [TF-03], [`CreateLightweightObj`], [Lightweight Tag mit Force], [Kombinatorik],
+    [TF-04], [`CreateLightweightObj`], [Force + spezifischer Commit], [Kombinatorik],
 
-Diese Testfälle validieren alle sieben Testbedingungen (TB-01 bis TB-07) und decken somit alle funktionalen Anforderungen (FR-TAG-01 bis FR-TAG-06) ab.
+    [TF-05], [`CreateAnnotatedObj`], [Annotated Tag auf HEAD], [Analog zu TF-01–TF-04],
+    [TF-06], [`CreateAnnotatedObj`], [Annotated Tag auf spezifischem Commit], [Analog zu TF-01–TF-04],
+    [TF-07], [`CreateAnnotatedObj`], [Annotated Tag mit Force], [Analog zu TF-01–TF-04],
+    [TF-08], [`CreateAnnotatedObj`], [Annotated Tag mit Force + Commit], [Analog zu TF-01–TF-04],
 
-== Implementierung - tag.go
+    [TF-09], [`IsTagAnnotated`], [Annotated Tag erkennen], [Grenzwertanalyse],
+    [TF-10], [`IsTagAnnotated`], [Lightweight Tag erkennen], [Grenzwertanalyse],
+    [TF-11], [`IsTagAnnotated`], [Whitespace tolerant parsen], [Grenzwertanalyse],
+
+    [TF-12], [`LocalDelete`], [Lokales Löschen eines Tags], [Direkter Funktionsaufruf],
+  ),
+  caption: [Übersicht aller Testfälle]
+
+)
+
+Diese Testfälle validieren alle Testbedingungen aus @test_bed und decken somit alle funktionalen Anforderungen aus @funk_anf ab.
+
+== Implementierung
 
 Die Tag-Tests wurden in `tag_test.go` implementiert und folgen strikt den Projekt-Konventionen. Jeder Testfall definiert eine Szenario-Struktur mit Eingabeparametern und erwarteten Git-Argumenten.
 Beispielhaft sei hier das implementierte Szenario für `TF-01` dargestellt.
@@ -393,12 +506,18 @@ func TestTagCommands_CreateLightweightObj(t *testing.T) {
 	}
 }
 ```
+Der Test verwendet `oscommands.NewFakeRunner`, um eine isolierte Testumgebung aufzubauen, ohne externe Prozesse auszuführen. 
+Im vorliegenden Fall wird jedoch kein Git Aufruf simuliert, sondern ausschließlich geprüft, ob `CreateLightweightObj` die erwartete Argumentliste für den Git Befehl korrekt zusammensetzt. 
+Die Validierung erfolgt durch den Vergleich von `cmdObj.Args()` mit den im Szenario definierten `expectedCmdArgs`.
 
-Der `FakeCmdObjRunner` simuliert Git-Befehle ohne tatsächliche Ausführung. Für jeden Testfall werden die erwarteten Argumente beim Fake-Runner registriert, die Funktion ausgeführt und anschließend mit `CheckForMissingCalls()` validiert, dass alle erwarteten Befehle aufgerufen wurden.
+Für Tests, die tatsächlich einen Git Aufruf auslösen, wird der Fake Runner zusätzlich mit erwarteten Argumenten konfiguriert und anschließend mit `CheckForMissingCalls()` verifiziert. Dies ist beispielsweise bei `IsTagAnnotated` und `LocalDelete` der Fall.
 
 Die vollständige Implementierung ist in @tag_test ersichtlich.
 
-== Testergebnisse und Coverage-Verbesserung - tag.go
+== Testergebnisse und Coverage-Verbesserung
+
+Die Ausführung der implementierten Tests zeigt, dass alle Testfälle erfolgreich durchlaufen. Die zugehörigen Testergebnisse sind in @test_erg dargestellt.
+
 Die Coverage-Analyse zeigt signifikante Verbesserungen für `tag.go`, wo fünf von acht Funktionen auf 100% Coverage gebracht wurden:
 
 ```bash
@@ -447,36 +566,28 @@ Die Gesamt-Coverage von `tag.go` stieg von 0% auf 62.5%.
 // ```
 // Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` von 37.1% auf 37.6% (+0.5 Prozentpunkte) und `pkg/utils` von 58.2% auf 59.6% (+1.4 Prozentpunkte). Obwohl die prozentualen Verbesserungen moderat erscheinen, schließen sie konkrete Lücken in wichtigen Funktionen innerhalb umfangreicher Packages.
 
-= Testauswertung und Metriken
-
-Die Coverage-Verbesserungen sind messbar und signifikant. Für `tag.go` stieg die Coverage von 0% auf 62.5%, wobei alle getesteten Funktionen 100% Coverage erreichten. Nur drei Funktionen blieben ungetestet. `string_stack.go` erreichte vollständige 100% Coverage für alle Funktionen.
-
-Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` um 0.5 Prozentpunkte (37.1% → 37.6%) und `pkg/utils` um 1.4 Prozentpunkte (58.2% → 59.6%). Diese scheinbar kleinen Zahlen sind bedeutsam, da beide Packages umfangreich sind und die neuen Tests gezielt Lücken schließen.
-
-Lazygit verfügt über 80+ Test-Dateien mit ~2500 Unit-Test-Funktionen. Unit-Tests laufen in unter einer Minute. Die Test-Code-Ratio ist ausgewogen – kritische Packages haben umfangreichere Tests. Die Tests integrierten sich nahtlos in die CI-Pipeline durch Standard-Go-Patterns und laufen auf allen Plattformen.
-
+// = Testauswertung und Metriken
+//
+// Die Coverage-Verbesserungen sind messbar und signifikant. Für `tag.go` stieg die Coverage von 0% auf 62.5%, wobei alle getesteten Funktionen 100% Coverage erreichten. Nur drei Funktionen blieben ungetestet. `string_stack.go` erreichte vollständige 100% Coverage für alle Funktionen.
+//
+// Auf Package-Ebene verbesserte sich `pkg/commands/git_commands` um 0.5 Prozentpunkte (37.1% → 37.6%) und `pkg/utils` um 1.4 Prozentpunkte (58.2% → 59.6%). Diese scheinbar kleinen Zahlen sind bedeutsam, da beide Packages umfangreich sind und die neuen Tests gezielt Lücken schließen.
+//
+// Lazygit verfügt über 80+ Test-Dateien mit ~2500 Unit-Test-Funktionen. Unit-Tests laufen in unter einer Minute. Die Test-Code-Ratio ist ausgewogen – kritische Packages haben umfangreichere Tests. Die Tests integrierten sich nahtlos in die CI-Pipeline durch Standard-Go-Patterns und laufen auf allen Plattformen.
+//
+#pagebreak()
 = Fazit
 
-// Diese Arbeit analysierte das Testkonzept von lazygit umfassend und erweiterte es durch eigene Testfälle. Lazygit verfügt über eine ausgereifte Teststrategie mit Unit-Tests, Table-Driven Tests, Integrationstests und robuster CI/CD-Pipeline, die als Vorbild für andere Go-Projekte dienen kann.
-//
-// Die durchgeführten Arbeiten umfassten mehrere Phasen: Die initiale Analyse identifizierte Testlücken in Tag-Kommandos und StringStack durch Coverage-Analysen und Code-Reviews. Die Implementierung umfasste 18 Testfälle mit 13 Sub-Tests für Tags und fünf für Stack-Operationen, alle im table-driven bzw. zustandsbasierten Test-Stil. Die Erstellung umfassender Dokumentation in `TEST_ERKLAERUNG.md` bietet didaktisches Material für neue Contributors. Alle Tests wurden erfolgreich in die CI-Pipeline integriert und bestehen auf allen Plattformen.
-//
-// Die theoretischen Grundlagen des Software-Testens wurden praktisch angewendet und validiert. Table-driven Tests demonstrieren Go-Best-Practices für maximale Testabdeckung mit minimalem Code-Overhead. Mock-basiertes Testing zeigt, wie Unit-Tests schnell und deterministisch gestaltet werden können. Die Kombination von Unit- und Integrationstests folgt dem Pyramiden-Modell und optimiert die Balance zwischen Geschwindigkeit und Gründlichkeit.
-//
-// Lazygit dient als exzellentes Beispiel für durchdachte Teststrategien in Open-Source-Projekten. Die konsequente Anwendung von Testing-Best-Practices trägt zur hohen Code-Qualität bei und ermöglicht schnelle, konfidente Entwicklung. Die erstellten Tests und Dokumentationen verbessern die Codequalität nachhaltig und erleichtern zukünftigen Mitwirkenden den Einstieg.
-//
-// Persönlich war diese Arbeit lehrreich in mehrfacher Hinsicht. Die praktische Arbeit an einem realen Open-Source-Projekt vermittelte Einblicke, die durch rein akademische Übungen nicht möglich wären. Die Herausforderung, Tests für existierenden Code zu schreiben, unterscheidet sich fundamental von Test-First-Ansätzen und erfordert sorgfältige Analyse. Die Notwendigkeit, Projekt-Konventionen zu folgen und sich in bestehende Code-Bases einzuarbeiten, spiegelt realistische Berufspraxis wider.
-//
-// Die Erkenntnisse dieser Arbeit sind über lazygit hinaus wertvoll. Table-driven Tests sind in jedem Go-Projekt anwendbar. Mock-basierte Unit-Tests sind sprachübergreifend relevant. Die CI/CD-Patterns mit GitHub Actions lassen sich auf andere Projekte übertragen. Und die systematische Identifikation von Testlücken ist eine Fähigkeit, die in jeder professionellen Software-Entwicklung benötigt wird.
-//
-// Zukünftige Arbeiten könnten diese Analyse erweitern durch Performance-Benchmarking kritischer Komponenten, Mutation-Testing zur Validierung der Test-Qualität, End-to-End-Test-Automatisierung für komplexere User-Journeys oder Fuzz-Testing für Parser und Input-Validierung. Lazygit bietet ein reichhaltiges Umfeld für weitere Experimente im Software-Testing.
+Im Rahmen dieser Arbeit wurde das Testkonzept des Projekts lazygit anhand ausgewählter Funktionalitäten untersucht und gezielt erweitert. Die Analyse der bestehenden Testinfrastruktur zeigte, dass das Projekt bereits über eine solide Basis automatisierter Tests verfügt, insbesondere durch den konsequenten Einsatz von table-driven Tests und durch die Entkopplung von externen Abhängigkeiten mittels Fake-Runnern.
+
+Gleichzeitig konnten durch Coverage-Analysen und manuelle Code-Reviews Bereiche identifiziert werden, in denen zentrale Logikpfade bislang nicht oder nur unzureichend abgesichert waren. Für diese Bereiche wurden funktionale Anforderungen, Use Cases und Testbedingungen systematisch hergeleitet und in konkrete Testfälle überführt. Die implementierten Tests verbessern insbesondere die Absicherung der Git-Befehlskonstruktion in der Tag-Verwaltung und erhöhen die Nachvollziehbarkeit des Testentwurfs durch klare Ableitungsbeziehungen.
+
+Die Ergebnisse zeigen, dass sich mit überschaubarem Aufwand und methodischem Vorgehen die Testabdeckung und Aussagekraft einer bestehenden Test-Suite deutlich steigern lassen. Dabei hat sich insbesondere die Kombination aus Code-Analyse und klassischen Testentwurfstechniken als praktikabel erwiesen.
 
 #pagebreak()
-#show link: set text(fill: black)
-#show bibliography: set heading(level: 2)
-#bibliography("biblio.bib", title: "Quellen", style: "ieee")
+#set heading(numbering: none)
 
 = Anhang
+== Abbildungen
 #show figure: set block(breakable: true)
 #figure(
   caption: "tag_test.go",
@@ -687,193 +798,238 @@ func TestTagCommands_LocalDelete(t *testing.T) {
 }
 ```]<tag_test>
 
+#pagebreak()
+#figure(
+  caption: "Testergebnisse für tag_test.go",
+  kind: image,
+  ```bash
+  # go test -v ./pkg/commands/git_commands -run TestTag
+  === RUN   TestTagCommands_CreateLightweightObj
+  === RUN   TestTagCommands_CreateLightweightObj/create_simple_lightweight_tag_on_HEAD
+  === RUN   TestTagCommands_CreateLightweightObj/create_lightweight_tag_on_specific_commit
+  === RUN   TestTagCommands_CreateLightweightObj/create_lightweight_tag_with_force_flag
+  === RUN   TestTagCommands_CreateLightweightObj/create_forced_lightweight_tag_on_specific_commit
+  --- PASS: TestTagCommands_CreateLightweightObj (0.00s)
+  --- PASS: TestTagCommands_CreateLightweightObj/create_simple_lightweight_tag_on_HEAD (0.00s)
+  --- PASS: TestTagCommands_CreateLightweightObj/create_lightweight_tag_on_specific_commit (0.00s)
+  --- PASS: TestTagCommands_CreateLightweightObj/create_lightweight_tag_with_force_flag (0.00s)
+  --- PASS: TestTagCommands_CreateLightweightObj/create_forced_lightweight_tag_on_specific_commit (0.00s)
+  === RUN   TestTagCommands_CreateAnnotatedObj
+  === RUN   TestTagCommands_CreateAnnotatedObj/create_annotated_tag_on_HEAD
+  === RUN   TestTagCommands_CreateAnnotatedObj/create_annotated_tag_on_specific_commit
+  === RUN   TestTagCommands_CreateAnnotatedObj/create_forced_annotated_tag
+  === RUN   TestTagCommands_CreateAnnotatedObj/create_forced_annotated_tag_on_specific_commit
+  --- PASS: TestTagCommands_CreateAnnotatedObj (0.00s)
+  --- PASS: TestTagCommands_CreateAnnotatedObj/create_annotated_tag_on_HEAD (0.00s)
+  --- PASS: TestTagCommands_CreateAnnotatedObj/create_annotated_tag_on_specific_commit (0.00s)
+  --- PASS: TestTagCommands_CreateAnnotatedObj/create_forced_annotated_tag (0.00s)
+  --- PASS: TestTagCommands_CreateAnnotatedObj/create_forced_annotated_tag_on_specific_commit (0.00s)
+  === RUN   TestTagCommands_LocalDelete
+  --- PASS: TestTagCommands_LocalDelete (0.00s)
+  === RUN   TestTagCommands_IsTagAnnotated
+  === RUN   TestTagCommands_IsTagAnnotated/tag_is_annotated
+  === RUN   TestTagCommands_IsTagAnnotated/tag_is_lightweight
+  === RUN   TestTagCommands_IsTagAnnotated/tag_with_extra_whitespace
+  --- PASS: TestTagCommands_IsTagAnnotated (0.00s)
+  --- PASS: TestTagCommands_IsTagAnnotated/tag_is_annotated (0.00s)
+  --- PASS: TestTagCommands_IsTagAnnotated/tag_is_lightweight (0.00s)
+  --- PASS: TestTagCommands_IsTagAnnotated/tag_with_extra_whitespace (0.00s)
+  PASS
+  ok  	github.com/jesseduffield/lazygit/pkg/commands/git_commands	0.004s
+  ```
+)<test_erg>
+
+#pagebreak()
+#show link: set text(fill: black)
+#show bibliography: set heading(level: 2)
+#bibliography("biblio.bib", title: "Quellen", style: "ieee")
 // ---------------------------------------------
 // Use Case Tabellen – Tag-Verwaltung (lazygit)
 // ---------------------------------------------
 
-#let uc-table(title, rows) = [
-  #table(
-    columns: (22%, 78%),
-    inset: 6pt,
-    align: (left, left),
-    stroke: (x: 0.6pt, y: 0.6pt),
-    [*Use Case*], [*#title*],
-    ..rows.join(),
-  )
-]
-
-// Helper: Zeile erzeugen
-#let uc-row(key, value) = ([*#key*], [#value])
-
-// ---------------------------------------------
-// UC1: Release-Version taggen
-// ---------------------------------------------
-#uc-table("UC1: Release-Version taggen", (
-  uc-row("Akteur", "Software-Entwickler"),
-  uc-row("Vorbedingungen", [
-    - Repository ist in lazygit geöffnet
-    - Commit für Release ist ausgewählt (z. B. im Commits-View oder Branches-View)
-  ]),
-  uc-row("Trigger", "Benutzer drückt `n` (new tag)"),
-  uc-row("Hauptszenario", [
-    1. System zeigt Eingabemaske mit zwei Feldern:
-      - Tag-Name (z. B. \"v1.0.0\")
-      - Optional: Tag-Beschreibung
-    2. Benutzer gibt Tag-Name ein
-    3. Benutzer entscheidet:
-      - Beschreibung leer lassen → Lightweight Tag
-      - Beschreibung eingeben → Annotated Tag
-    4. System prüft, ob Tag bereits existiert (HasTag)
-    5. System erstellt Tag auf ausgewähltem Commit
-    6. System aktualisiert Tags- und Commits-View
-    7. System zeigt Erfolgsmeldung
-  ]),
-  uc-row("Alternativszenarien", [
-    *4a. Tag existiert bereits:*
-    - 4a1. System zeigt Prompt: \"Force tag 'v1.0.0'? (Cancel: Esc, Confirm: Enter)\"
-    - 4a2. Benutzer bestätigt → Tag wird mit `--force` überschrieben
-    - 4a3. Benutzer bricht ab → Keine Änderung
-
-    *5a. GPG-Signierung ist aktiviert:*
-    - 5a1. System erstellt immer Annotated Tag (auch ohne Beschreibung)
-    - 5a2. System fordert GPG-Passphrase an
-    - 5a3. Tag wird signiert erstellt
-
-    *7a. Git-Fehler (z. B. ungültiger Tag-Name):*
-    - System zeigt Fehlermeldung
-    - Benutzer kann erneut eingeben
-  ]),
-  uc-row("Nachbedingungen", [
-    - Tag ist lokal auf dem ausgewählten Commit erstellt
-    - Tag erscheint in der Tags-Liste
-  ]),
-  uc-row("Geschäftsregeln", [
-    - Annotated Tags werden erstellt bei: Beschreibung vorhanden ODER GPG-Signing aktiviert
-    - Lightweight Tags werden erstellt bei: Keine Beschreibung UND kein GPG-Signing
-    - Force-Flag wird automatisch gesetzt, wenn Tag bereits existiert und Benutzer bestätigt
-  ]),
-  uc-row("Häufigkeit", "Hoch (bei jedem Release, Milestone, Hotfix)"),
-))
-
-// ---------------------------------------------
-// UC2: Fehlerhaften Tag lokal korrigieren
-// ---------------------------------------------
-#uc-table("UC2: Fehlerhaften Tag lokal korrigieren", (
-  uc-row("Akteur", "Software-Entwickler"),
-  uc-row("Vorbedingungen", [
-    - Repository ist geöffnet
-    - Tag existiert lokal
-    - Tag wurde noch nicht gepusht (oder Benutzer ist sich der Konsequenzen bewusst)
-  ]),
-  uc-row("Trigger", [
-    - Benutzer navigiert zu Tags-View
-    - Wählt fehlerhaften Tag aus
-    - Drückt `d` (delete)
-  ]),
-  uc-row("Hauptszenario", [
-    1. System zeigt Menü mit 3 Optionen:
-      - `c` - Delete local tag
-      - `r` - Delete remote tag
-      - `b` - Delete both local and remote
-    2. Benutzer wählt `c` (local delete)
-    3. System führt `LocalDelete(tagName)` aus
-    4. System entfernt Tag aus lokaler Datenbank
-    5. System aktualisiert Tags-View
-    6. Tag verschwindet aus der Liste
-  ]),
-  uc-row("Alternativszenarien", [
-    *2a. Benutzer wählt Remote Delete:*
-    - 2a1. System fragt nach Bestätigung
-    - 2a2. System pusht Tag-Löschung zum Remote
-
-    *2b. Benutzer wählt Both:*
-    - 2b1. Lokaler Tag wird gelöscht
-    - 2b2. Remote Tag wird gelöscht (mit Bestätigung)
-  ]),
-  uc-row("Nachbedingungen", [
-    - Tag existiert nicht mehr lokal
-    - Benutzer kann neuen Tag mit korrektem Namen/Commit erstellen
-  ]),
-  uc-row("Häufigkeit", "Mittel (bei Tippfehlern, falschen Commits)"),
-))
-
-// ---------------------------------------------
-// UC3: Tag-Informationen anzeigen
-// ---------------------------------------------
-#uc-table("UC3: Tag-Informationen anzeigen", (
-  uc-row("Akteur", "Software-Entwickler"),
-  uc-row("Vorbedingungen", [
-    - Repository ist geöffnet
-    - Tags existieren
-  ]),
-  uc-row("Trigger", [
-    - Benutzer navigiert zu Tags-View
-    - Wählt einen Tag aus (mit Pfeiltasten)
-  ]),
-  uc-row("Hauptszenario", [
-    1. System selektiert Tag
-    2. System ruft `IsTagAnnotated(tagName)` auf
-    3. Falls Annotated Tag:
-      - 3a. System ruft `ShowAnnotationInfo(tagName)` auf
-      - 3b. System zeigt im Main-Panel:
-        - Tagger: Name <email>
-        - TaggerDate: Datum
-        - Tag-Message
-    4. Falls Lightweight Tag:
-      - 4a. System zeigt Commit-Details (da Tag nur Pointer ist)
-    5. System zeigt zugehörigen Commit in der Ansicht
-  ]),
-  uc-row("Alternativszenarien", "Keine relevanten Abweichungen"),
-  uc-row("Nachbedingungen", "Benutzer sieht Tag-Details und kann entscheiden (löschen, pushen, checkout)"),
-  uc-row("Häufigkeit", "Hoch (bei Code-Review, Release-Vorbereitung)"),
-))
-
-// ---------------------------------------------
-// UC4: Tag auf falschen Commit verschieben
-// ---------------------------------------------
-#uc-table("UC4: Bestehenden Tag verschieben (Force-Update)", (
-  uc-row("Akteur", "Software-Entwickler"),
-  uc-row("Kontext", "\"latest\"-Tag oder \"stable\"-Tag soll immer auf aktuellsten Stand zeigen"),
-  uc-row("Vorbedingungen", [
-    - Repository ist geöffnet
-    - Tag \"latest\" existiert auf älterem Commit
-    - Neuer Commit soll getaggt werden
-  ]),
-  uc-row("Trigger", "Benutzer will Tag aktualisieren"),
-  uc-row("Hauptszenario", [
-    1. Benutzer navigiert zu neuem Commit
-    2. Benutzer drückt `n` (new tag)
-    3. Benutzer gibt existierenden Tag-Namen ein (z. B. \"latest\")
-    4. System erkennt via `HasTag(\"latest\")`, dass Tag existiert
-    5. System zeigt Force-Prompt
-    6. Benutzer bestätigt
-    7. System erstellt Tag mit `--force` Flag
-    8. Tag wird auf neuen Commit verschoben
-  ]),
-  uc-row("Nachbedingungen", [
-    - Tag zeigt auf neuen Commit
-    - Alter Commit ist nicht mehr getaggt
-  ]),
-  uc-row("Geschäftsregel", [
-    - Force-Tags auf Remote können Probleme für andere Entwickler verursachen
-    - Wird oft in CI/CD für Rolling-Tags verwendet
-  ]),
-  uc-row("Häufigkeit", "Mittel (bei Rolling-Tags, Hotfix-Korrekturen)"),
-))
-
-#table(
-  columns: (45%, 55%),
-  inset: 6pt,
-  align: (left, left),
-  stroke: (x: 0.6pt, y: 0.6pt),
-
-  [*Use Case*], [*Führt zu Test*],
-
-  [UC1 - Lightweight Tag auf HEAD], [CreateLightweightObj - Scenario 1],
-  [UC1 - Annotated Tag mit Message], [CreateAnnotatedObj - Scenario 1],
-  [UC1 - Tag auf älteren Commit], [CreateLightweightObj - Scenario 2],
-  [UC4 - Tag verschieben (Force)], [CreateLightweightObj - Scenario 3 & 4],
-  [UC2 - Tag löschen], [LocalDelete - Test],
-  [UC3 - Tag-Typ erkennen], [IsTagAnnotated - Alle Scenarios],
-)
-
+// #let uc-table(title, rows) = [
+//   #table(
+//     columns: (22%, 78%),
+//     inset: 6pt,
+//     align: (left, left),
+//     stroke: (x: 0.6pt, y: 0.6pt),
+//     [*Use Case*], [*#title*],
+//     ..rows.join(),
+//   )
+// ]
+//
+// // Helper: Zeile erzeugen
+// #let uc-row(key, value) = ([*#key*], [#value])
+//
+// // ---------------------------------------------
+// // UC1: Release-Version taggen
+// // ---------------------------------------------
+// #uc-table("UC1: Release-Version taggen", (
+//   uc-row("Akteur", "Software-Entwickler"),
+//   uc-row("Vorbedingungen", [
+//     - Repository ist in lazygit geöffnet
+//     - Commit für Release ist ausgewählt (z. B. im Commits-View oder Branches-View)
+//   ]),
+//   uc-row("Trigger", "Benutzer drückt `n` (new tag)"),
+//   uc-row("Hauptszenario", [
+//     1. System zeigt Eingabemaske mit zwei Feldern:
+//       - Tag-Name (z. B. \"v1.0.0\")
+//       - Optional: Tag-Beschreibung
+//     2. Benutzer gibt Tag-Name ein
+//     3. Benutzer entscheidet:
+//       - Beschreibung leer lassen → Lightweight Tag
+//       - Beschreibung eingeben → Annotated Tag
+//     4. System prüft, ob Tag bereits existiert (HasTag)
+//     5. System erstellt Tag auf ausgewähltem Commit
+//     6. System aktualisiert Tags- und Commits-View
+//     7. System zeigt Erfolgsmeldung
+//   ]),
+//   uc-row("Alternativszenarien", [
+//     *4a. Tag existiert bereits:*
+//     - 4a1. System zeigt Prompt: \"Force tag 'v1.0.0'? (Cancel: Esc, Confirm: Enter)\"
+//     - 4a2. Benutzer bestätigt → Tag wird mit `--force` überschrieben
+//     - 4a3. Benutzer bricht ab → Keine Änderung
+//
+//     *5a. GPG-Signierung ist aktiviert:*
+//     - 5a1. System erstellt immer Annotated Tag (auch ohne Beschreibung)
+//     - 5a2. System fordert GPG-Passphrase an
+//     - 5a3. Tag wird signiert erstellt
+//
+//     *7a. Git-Fehler (z. B. ungültiger Tag-Name):*
+//     - System zeigt Fehlermeldung
+//     - Benutzer kann erneut eingeben
+//   ]),
+//   uc-row("Nachbedingungen", [
+//     - Tag ist lokal auf dem ausgewählten Commit erstellt
+//     - Tag erscheint in der Tags-Liste
+//   ]),
+//   uc-row("Geschäftsregeln", [
+//     - Annotated Tags werden erstellt bei: Beschreibung vorhanden ODER GPG-Signing aktiviert
+//     - Lightweight Tags werden erstellt bei: Keine Beschreibung UND kein GPG-Signing
+//     - Force-Flag wird automatisch gesetzt, wenn Tag bereits existiert und Benutzer bestätigt
+//   ]),
+//   uc-row("Häufigkeit", "Hoch (bei jedem Release, Milestone, Hotfix)"),
+// ))
+//
+// // ---------------------------------------------
+// // UC2: Fehlerhaften Tag lokal korrigieren
+// // ---------------------------------------------
+// #uc-table("UC2: Fehlerhaften Tag lokal korrigieren", (
+//   uc-row("Akteur", "Software-Entwickler"),
+//   uc-row("Vorbedingungen", [
+//     - Repository ist geöffnet
+//     - Tag existiert lokal
+//     - Tag wurde noch nicht gepusht (oder Benutzer ist sich der Konsequenzen bewusst)
+//   ]),
+//   uc-row("Trigger", [
+//     - Benutzer navigiert zu Tags-View
+//     - Wählt fehlerhaften Tag aus
+//     - Drückt `d` (delete)
+//   ]),
+//   uc-row("Hauptszenario", [
+//     1. System zeigt Menü mit 3 Optionen:
+//       - `c` - Delete local tag
+//       - `r` - Delete remote tag
+//       - `b` - Delete both local and remote
+//     2. Benutzer wählt `c` (local delete)
+//     3. System führt `LocalDelete(tagName)` aus
+//     4. System entfernt Tag aus lokaler Datenbank
+//     5. System aktualisiert Tags-View
+//     6. Tag verschwindet aus der Liste
+//   ]),
+//   uc-row("Alternativszenarien", [
+//     *2a. Benutzer wählt Remote Delete:*
+//     - 2a1. System fragt nach Bestätigung
+//     - 2a2. System pusht Tag-Löschung zum Remote
+//
+//     *2b. Benutzer wählt Both:*
+//     - 2b1. Lokaler Tag wird gelöscht
+//     - 2b2. Remote Tag wird gelöscht (mit Bestätigung)
+//   ]),
+//   uc-row("Nachbedingungen", [
+//     - Tag existiert nicht mehr lokal
+//     - Benutzer kann neuen Tag mit korrektem Namen/Commit erstellen
+//   ]),
+//   uc-row("Häufigkeit", "Mittel (bei Tippfehlern, falschen Commits)"),
+// ))
+//
+// // ---------------------------------------------
+// // UC3: Tag-Informationen anzeigen
+// // ---------------------------------------------
+// #uc-table("UC3: Tag-Informationen anzeigen", (
+//   uc-row("Akteur", "Software-Entwickler"),
+//   uc-row("Vorbedingungen", [
+//     - Repository ist geöffnet
+//     - Tags existieren
+//   ]),
+//   uc-row("Trigger", [
+//     - Benutzer navigiert zu Tags-View
+//     - Wählt einen Tag aus (mit Pfeiltasten)
+//   ]),
+//   uc-row("Hauptszenario", [
+//     1. System selektiert Tag
+//     2. System ruft `IsTagAnnotated(tagName)` auf
+//     3. Falls Annotated Tag:
+//       - 3a. System ruft `ShowAnnotationInfo(tagName)` auf
+//       - 3b. System zeigt im Main-Panel:
+//         - Tagger: Name <email>
+//         - TaggerDate: Datum
+//         - Tag-Message
+//     4. Falls Lightweight Tag:
+//       - 4a. System zeigt Commit-Details (da Tag nur Pointer ist)
+//     5. System zeigt zugehörigen Commit in der Ansicht
+//   ]),
+//   uc-row("Alternativszenarien", "Keine relevanten Abweichungen"),
+//   uc-row("Nachbedingungen", "Benutzer sieht Tag-Details und kann entscheiden (löschen, pushen, checkout)"),
+//   uc-row("Häufigkeit", "Hoch (bei Code-Review, Release-Vorbereitung)"),
+// ))
+//
+// // ---------------------------------------------
+// // UC4: Tag auf falschen Commit verschieben
+// // ---------------------------------------------
+// #uc-table("UC4: Bestehenden Tag verschieben (Force-Update)", (
+//   uc-row("Akteur", "Software-Entwickler"),
+//   uc-row("Kontext", "\"latest\"-Tag oder \"stable\"-Tag soll immer auf aktuellsten Stand zeigen"),
+//   uc-row("Vorbedingungen", [
+//     - Repository ist geöffnet
+//     - Tag \"latest\" existiert auf älterem Commit
+//     - Neuer Commit soll getaggt werden
+//   ]),
+//   uc-row("Trigger", "Benutzer will Tag aktualisieren"),
+//   uc-row("Hauptszenario", [
+//     1. Benutzer navigiert zu neuem Commit
+//     2. Benutzer drückt `n` (new tag)
+//     3. Benutzer gibt existierenden Tag-Namen ein (z. B. \"latest\")
+//     4. System erkennt via `HasTag(\"latest\")`, dass Tag existiert
+//     5. System zeigt Force-Prompt
+//     6. Benutzer bestätigt
+//     7. System erstellt Tag mit `--force` Flag
+//     8. Tag wird auf neuen Commit verschoben
+//   ]),
+//   uc-row("Nachbedingungen", [
+//     - Tag zeigt auf neuen Commit
+//     - Alter Commit ist nicht mehr getaggt
+//   ]),
+//   uc-row("Geschäftsregel", [
+//     - Force-Tags auf Remote können Probleme für andere Entwickler verursachen
+//     - Wird oft in CI/CD für Rolling-Tags verwendet
+//   ]),
+//   uc-row("Häufigkeit", "Mittel (bei Rolling-Tags, Hotfix-Korrekturen)"),
+// ))
+//
+// #table(
+//   columns: (45%, 55%),
+//   inset: 6pt,
+//   align: (left, left),
+//   stroke: (x: 0.6pt, y: 0.6pt),
+//
+//   [*Use Case*], [*Führt zu Test*],
+//
+//   [UC1 - Lightweight Tag auf HEAD], [CreateLightweightObj - Scenario 1],
+//   [UC1 - Annotated Tag mit Message], [CreateAnnotatedObj - Scenario 1],
+//   [UC1 - Tag auf älteren Commit], [CreateLightweightObj - Scenario 2],
+//   [UC4 - Tag verschieben (Force)], [CreateLightweightObj - Scenario 3 & 4],
+//   [UC2 - Tag löschen], [LocalDelete - Test],
+//   [UC3 - Tag-Typ erkennen], [IsTagAnnotated - Alle Scenarios],
+// )
+//
